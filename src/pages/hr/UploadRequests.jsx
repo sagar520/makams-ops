@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link2, Copy, Ban } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { supabase, portalUrl } from '../../lib/supabase'
 import { PageHeader, Table, Th, Td, Tr, Badge, Button, EmptyState, FullPageSpinner, useToast } from '../../components/ui'
 import { docTypeLabel, profileFieldLabel } from '../../lib/constants'
 import { fmtDateTime, daysUntil } from '../../lib/format'
@@ -32,7 +32,7 @@ export default function UploadRequests() {
   })
 
   const copy = async (l) => {
-    await navigator.clipboard.writeText(`${window.location.origin}/u/${l.token}`)
+    await navigator.clipboard.writeText(portalUrl(l.token))
     toast('Link copied')
   }
 

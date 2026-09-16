@@ -5,7 +5,7 @@ import {
   Pencil, FileText, Eye, Trash2, CheckCircle2, XCircle, Link2, Copy, GraduationCap,
   Upload, Plus, ListChecks, ShieldCheck, ShieldOff, MailPlus,
 } from 'lucide-react'
-import { supabase, callFunction } from '../../lib/supabase'
+import { supabase, callFunction, portalUrl } from '../../lib/supabase'
 import {
   PageHeader, Card, Button, Badge, Tabs, Modal, Field, Input, Select, Textarea, Checkbox,
   Info, FullPageSpinner, EmptyState, useToast, cx,
@@ -274,7 +274,7 @@ export function RequestLinkModal({ person, open, onClose }) {
         .select('token')
         .single()
       if (error) throw error
-      setCreated(`${window.location.origin}/u/${data.token}`)
+      setCreated(portalUrl(data.token))
       qc.invalidateQueries({ queryKey: ['upload-links'] })
     } catch (e) {
       toast(e.message, 'error')

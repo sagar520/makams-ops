@@ -1,12 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
+import { createDemoClient } from './demo/client'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabaseAnonKey = anonKey
-export const isConfigured = Boolean(url && anonKey)
+/** Demo mode: the whole app runs against an in-memory store — no Supabase needed. */
+export const isDemo = import.meta.env.VITE_DEMO === '1'
 
-export const supabase = isConfigured
+export const supabaseAnonKey = anonKey
+export const isConfigured = isDemo || Boolean(url && anonKey)
+
+export const supabase = isDemo
+  ? createDemoClient()
+  : isConfigured
   ? createClient(url, anonKey)
   : new Proxy({}, {
       get() {
@@ -16,8 +22,15 @@ export const supabase = isConfigured
       },
     })
 
+/** Public employee-portal URL for an upload link token. */
+export function portalUrl(token) {
+  return isDemo
+    ? `${window.location.origin}${window.location.pathname}#/u/${token}`
+    : `${window.location.origin}/u/${token}`
+}
+
 /** Base URL for edge functions */
-export const functionsUrl = isConfigured ? `${url}/functions/v1` : ''
+export const functionsUrl = !isDemo && isConfigured ? `${url}/functions/v1` : ''
 
 /** Call an edge function with the current session's JWT. */
 export async function callFunction(name, body) {

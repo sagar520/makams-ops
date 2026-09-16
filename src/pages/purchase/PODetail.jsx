@@ -5,7 +5,7 @@ import {
   Pencil, Send, Copy, Trash2, Download, PackagePlus, CheckCircle2, XCircle, RotateCcw,
   Ban, Archive, Clock, User, FileText, Truck, Mail, CircleDot, Circle,
 } from 'lucide-react'
-import { supabase, callFunction } from '../../lib/supabase'
+import { supabase, callFunction, isDemo } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import {
   PageHeader, Card, Button, Badge, Modal, Field, Input, Textarea, Info,
@@ -150,6 +150,7 @@ export default function PODetail() {
                 try {
                   const { downloadPoPdf } = await import('../../lib/pdf')
                   downloadPoPdf(pdfData)
+                  if (isDemo) toast('PDF generated — if the download doesn\'t start, your browser sandbox blocked it; it works normally in the real deployment', 'info')
                 } finally { setBusy(null) }
               }}>PDF</Button>
             {canPurchase && <Button variant="secondary" icon={Copy} loading={busy === 'duplicate'} onClick={duplicate}>Duplicate</Button>}

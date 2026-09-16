@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { CheckCircle2, Upload, FileText, AlertTriangle, Loader2 } from 'lucide-react'
-import { supabase, functionsUrl, supabaseAnonKey } from '../../lib/supabase'
+import { supabase, functionsUrl, supabaseAnonKey, isDemo, callFunction } from '../../lib/supabase'
 import { docTypeLabel, PROFILE_FIELDS, profileFieldLabel } from '../../lib/constants'
 import { Button, Input, Textarea, Field, cx } from '../../components/ui'
 
@@ -33,17 +33,21 @@ export default function UploadPortal() {
     setError(null)
     setUploadingType(docType)
     try {
-      const fd = new FormData()
-      fd.append('token', token)
-      fd.append('doc_type', docType)
-      fd.append('file', file)
-      const res = await fetch(`${functionsUrl}/public-upload`, {
-        method: 'POST',
-        headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseAnonKey}` },
-        body: fd,
-      })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok || json.error) throw new Error(json.error || 'Upload failed — please try again')
+      if (isDemo) {
+        await callFunction('public-upload', { token, doc_type: docType, file })
+      } else {
+        const fd = new FormData()
+        fd.append('token', token)
+        fd.append('doc_type', docType)
+        fd.append('file', file)
+        const res = await fetch(`${functionsUrl}/public-upload`, {
+          method: 'POST',
+          headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseAnonKey}` },
+          body: fd,
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok || json.error) throw new Error(json.error || 'Upload failed — please try again')
+      }
       await load()
     } catch (e) {
       setError(e.message)

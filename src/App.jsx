@@ -1,7 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { ToastProvider, FullPageSpinner } from './components/ui'
-import { isConfigured } from './lib/supabase'
+import { isConfigured, isDemo } from './lib/supabase'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Home from './pages/Home'
@@ -69,12 +69,31 @@ function RequireRole({ roles, children }) {
   return hasAnyRole(roles) ? children : <Navigate to="/" replace />
 }
 
+function DemoBanner() {
+  return (
+    <div className="pointer-events-none fixed bottom-4 left-1/2 z-[70] -translate-x-1/2">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-amber-300 bg-amber-50/95 py-1.5 pl-4 pr-2 text-xs font-medium text-amber-900 shadow-lg backdrop-blur">
+        <span>Demo — sample data, changes live only in this tab</span>
+        <button
+          onClick={() => window.location.reload()}
+          className="rounded-full bg-amber-200/80 px-2.5 py-1 font-semibold text-amber-900 hover:bg-amber-300"
+        >
+          Reset
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const Router = isDemo ? HashRouter : BrowserRouter
+
 export default function App() {
   if (!isConfigured) return <ConfigError />
   return (
     <ToastProvider>
       <AuthProvider>
-        <BrowserRouter>
+        {isDemo && <DemoBanner />}
+        <Router>
           <Routes>
             {/* Public: employee document/detail submission via tokenised link */}
             <Route path="/u/:token" element={<UploadPortal />} />
@@ -101,7 +120,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
-        </BrowserRouter>
+        </Router>
       </AuthProvider>
     </ToastProvider>
   )

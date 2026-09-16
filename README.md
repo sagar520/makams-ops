@@ -16,6 +16,24 @@ Functions/Storage) + Vercel. Same stack as the learnapp, but its **own** Supabas
 
 ---
 
+## 0. Try it without any setup (demo mode)
+
+```bash
+npm install
+VITE_DEMO=1 npm run dev
+```
+
+Demo mode runs the **entire app against an in-memory sample dataset** — no Supabase
+project, no env vars, no cost. Every flow works: create/submit/approve/reject POs,
+record receipts, duplicate, PO PDFs, employee upload links (open one from Upload
+requests), checklists, learnapp actions (simulated). Changes live only in the tab and
+reset on refresh. `VITE_DEMO=1 npm run build` produces a static demo build you can host
+anywhere.
+
+Never set `VITE_DEMO` on the real deployment.
+
+---
+
 ## 1. Create the Supabase project
 
 1. [supabase.com](https://supabase.com) → New project (free tier is fine; the free plan
@@ -168,6 +186,11 @@ set — you can go live without them and add them later.
 
 ## 8. Costs
 
-Supabase free tier (2 active projects, 500 MB DB — note free projects pause after ~1
-week of zero traffic; daily use keeps it alive), Vercel Hobby, Resend free tier.
-₹0/month at current scale.
+₹0/month at current scale: Supabase free tier + Vercel Hobby + Resend free tier.
+
+**If your Supabase account already has a paid (Pro) organization**: don't create this
+project inside it — every additional project in a Pro org runs its own compute
+(~$10/month). Supabase bills per *organization*, so create a **new free-tier
+organization** on the same account and put this project there: 2 free projects, 500 MB
+DB, free edge functions. Free projects pause after ~7 idle days; daily ops use keeps
+this one alive, and unpausing after a long break is one click with no data loss.
