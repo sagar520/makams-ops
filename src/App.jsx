@@ -1,0 +1,108 @@
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { AuthProvider, useAuth } from './hooks/useAuth'
+import { ToastProvider, FullPageSpinner } from './components/ui'
+import { isConfigured } from './lib/supabase'
+import Layout from './components/Layout'
+import Login from './pages/Login'
+import Home from './pages/Home'
+import PeopleList from './pages/hr/PeopleList'
+import PersonDetail from './pages/hr/PersonDetail'
+import PersonForm from './pages/hr/PersonForm'
+import ImportPeople from './pages/hr/ImportPeople'
+import UploadRequests from './pages/hr/UploadRequests'
+import ChecklistTemplates from './pages/hr/ChecklistTemplates'
+import UploadPortal from './pages/public/UploadPortal'
+import Vendors from './pages/purchase/Vendors'
+import POList from './pages/purchase/POList'
+import POEditor from './pages/purchase/POEditor'
+import PODetail from './pages/purchase/PODetail'
+import Approvals from './pages/purchase/Approvals'
+import Settings from './pages/Settings'
+
+function ConfigError() {
+  return (
+    <div className="flex h-screen items-center justify-center p-6">
+      <div className="max-w-md rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+        <p className="font-semibold">App not configured</p>
+        <p className="mt-2">
+          Copy <code className="rounded bg-amber-100 px-1">.env.example</code> to{' '}
+          <code className="rounded bg-amber-100 px-1">.env</code> and set your Supabase URL and anon key, then restart the dev
+          server. On Vercel, set the same variables in Project Settings → Environment Variables.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function NotInvited() {
+  const { session, signOut } = useAuth()
+  return (
+    <div className="flex h-screen items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <h1 className="text-lg font-semibold text-slate-900">No access</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          <span className="font-medium text-slate-700">{session?.user?.email}</span> hasn't been invited to Makams Ops. Ask an
+          admin to add you under Settings → Users, then sign in again.
+        </p>
+        <button onClick={signOut} className="mt-5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+          Sign out
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Protected() {
+  const { session, appUser } = useAuth()
+  if (session === undefined || (session && appUser === undefined)) return <FullPageSpinner />
+  if (!session) return <Login />
+  if (!appUser || !appUser.active) return <NotInvited />
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  )
+}
+
+function RequireRole({ roles, children }) {
+  const { hasAnyRole } = useAuth()
+  return hasAnyRole(roles) ? children : <Navigate to="/" replace />
+}
+
+export default function App() {
+  if (!isConfigured) return <ConfigError />
+  return (
+    <ToastProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public: employee document/detail submission via tokenised link */}
+            <Route path="/u/:token" element={<UploadPortal />} />
+
+            <Route element={<Protected />}>
+              <Route path="/" element={<Home />} />
+
+              <Route path="/people" element={<RequireRole roles={['hr']}><PeopleList /></RequireRole>} />
+              <Route path="/people/new" element={<RequireRole roles={['hr']}><PersonForm /></RequireRole>} />
+              <Route path="/people/import" element={<RequireRole roles={['hr']}><ImportPeople /></RequireRole>} />
+              <Route path="/people/:id" element={<RequireRole roles={['hr']}><PersonDetail /></RequireRole>} />
+              <Route path="/people/:id/edit" element={<RequireRole roles={['hr']}><PersonForm /></RequireRole>} />
+              <Route path="/upload-requests" element={<RequireRole roles={['hr']}><UploadRequests /></RequireRole>} />
+              <Route path="/checklists" element={<RequireRole roles={['hr']}><ChecklistTemplates /></RequireRole>} />
+
+              <Route path="/vendors" element={<RequireRole roles={['purchase']}><Vendors /></RequireRole>} />
+              <Route path="/pos" element={<RequireRole roles={['purchase', 'approver']}><POList /></RequireRole>} />
+              <Route path="/pos/new" element={<RequireRole roles={['purchase']}><POEditor /></RequireRole>} />
+              <Route path="/pos/:id" element={<RequireRole roles={['purchase', 'approver']}><PODetail /></RequireRole>} />
+              <Route path="/pos/:id/edit" element={<RequireRole roles={['purchase']}><POEditor /></RequireRole>} />
+              <Route path="/approvals" element={<RequireRole roles={['purchase', 'approver']}><Approvals /></RequireRole>} />
+
+              <Route path="/settings/*" element={<RequireRole roles={['admin']}><Settings /></RequireRole>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ToastProvider>
+  )
+}

@@ -1,0 +1,173 @@
+# Makams Ops
+
+Internal operations app for Makams — HR and Purchase.
+
+**HR**: employee database (candidates → active → exited), document collection via
+no-login links sent to employees, onboarding/exit checklists, one-way sync **to** the
+company employee Google Sheet, and user management for the CRIL learnapp.
+
+**Purchase**: vendors, purchase orders with a configurable approval matrix
+(rules on PO type / delivery location / amount → ordered approver chain), PO PDF
+generation, emailing POs to vendors with resend + send log, goods receipts (partial /
+full), duplicate PO.
+
+Stack: React 18 + Vite 6 + Tailwind 4 + TanStack Query 5 + Supabase (Postgres/RLS/Edge
+Functions/Storage) + Vercel. Same stack as the learnapp, but its **own** Supabase project.
+
+---
+
+## 1. Create the Supabase project
+
+1. [supabase.com](https://supabase.com) → New project (free tier is fine; the free plan
+   allows 2 active projects, so the learnapp and this can co-exist).
+2. **Before running migrations**: open `supabase/migrations/0004_seed.sql` and check the
+   first-admin email (currently `aakash@makams.com`) — that account becomes admin on
+   first sign-in.
+3. Run the migrations, either way:
+   - **Dashboard**: SQL Editor → paste and run `0001_core.sql`, `0002_hr.sql`,
+     `0003_purchase.sql`, `0004_seed.sql` **in order**.
+   - **CLI**: `supabase link --project-ref <ref>` then `supabase db push`.
+
+The migrations create all tables, RLS policies, RPCs, the private `employee-docs`
+storage bucket, and seed data (PO types, onboarding/exit checklist templates, company
+settings placeholder).
+
+## 2. Google sign-in (staff login)
+
+Staff access is invite-only: someone can sign in with Google only if their email exists
+under Settings → Users.
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → create/reuse a project
+   (you'll also use it for the Sheets service account).
+2. **APIs & Services → OAuth consent screen**: Internal (if makams.com is on Google
+   Workspace) or External + your users.
+3. **Credentials → Create credentials → OAuth client ID → Web application**:
+   - Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
+4. Supabase Dashboard → **Authentication → Providers → Google**: paste client ID +
+   secret, enable.
+5. Supabase → **Authentication → URL Configuration**: set Site URL to your Vercel URL
+   (e.g. `https://ops.makams.com` or `https://makams-ops.vercel.app`) and add
+   `http://localhost:5173` to Additional Redirect URLs for local dev.
+
+## 3. Frontend
+
+```bash
+cp .env.example .env        # fill VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
+npm install
+npm run dev                 # http://localhost:5173
+```
+
+Sign in with the seeded admin email → you land on the dashboard.
+
+## 4. Edge functions
+
+Four functions live in `supabase/functions/`:
+
+| Function | Purpose | Secrets it needs |
+|---|---|---|
+| `send-po` | Emails the PO PDF to vendors via Resend, logs sends | `RESEND_API_KEY`, `PO_FROM_EMAIL` |
+| `public-upload` | Receives employee document uploads from `/u/:token` pages | — |
+| `sync-sheet` | Overwrites the employee tab in your Google Sheet from the app | `GOOGLE_SERVICE_ACCOUNT`, `SHEET_ID`, `SHEET_TAB` |
+| `learnapp-admin` | Creates/disables learnapp accounts | `LEARNAPP_URL`, `LEARNAPP_SERVICE_ROLE_KEY` |
+
+Deploy (needs the [Supabase CLI](https://supabase.com/docs/guides/cli), logged in and linked):
+
+```bash
+supabase functions deploy send-po
+supabase functions deploy sync-sheet
+supabase functions deploy learnapp-admin
+supabase functions deploy public-upload --no-verify-jwt   # public by design; every request is validated against the link token
+```
+
+Set the secrets:
+
+```bash
+supabase secrets set RESEND_API_KEY=re_xxxx
+supabase secrets set PO_FROM_EMAIL="Makams Purchase <purchase@makams.com>"
+supabase secrets set GOOGLE_SERVICE_ACCOUNT="$(cat service-account.json)"
+supabase secrets set SHEET_ID=1AbC...xyz        # from the sheet URL
+supabase secrets set SHEET_TAB=Employees        # tab that gets overwritten
+supabase secrets set LEARNAPP_URL=https://<learnapp-ref>.supabase.co
+supabase secrets set LEARNAPP_SERVICE_ROLE_KEY=eyJ...
+```
+
+Each integration fails with a clear "not configured yet" message until its secrets are
+set — you can go live without them and add them later.
+
+### Google Sheet sync (details)
+
+- In the same GCP project: **enable the Google Sheets API**, create a **service
+  account**, download its JSON key → that JSON (whole file) is the
+  `GOOGLE_SERVICE_ACCOUNT` secret.
+- Share the employee spreadsheet with the service account's `client_email` as
+  **Editor**.
+- **Direction**: this app is the source of truth. Every save in the app pushes the full
+  list to the tab (`SHEET_TAB` is cleared and rewritten). Point it at a dedicated tab —
+  don't hand-edit that tab, edits there will be overwritten. Do the one-time import the
+  other way with People → Import CSV.
+
+### Resend (PO emails)
+
+- [resend.com](https://resend.com) → verify the `makams.com` domain (SPF + DKIM DNS
+  records) → create an API key. The free tier (3,000 emails/month, 100/day) is far more
+  than PO volume needs.
+- Until the domain is verified you can only send to your own inbox — verify before
+  going live.
+
+### Learnapp (details)
+
+- `LEARNAPP_SERVICE_ROLE_KEY` is the learnapp project's service_role key (Dashboard →
+  Settings → API). It stays server-side in the edge function; the browser never sees it.
+- "Invite by email" uses the learnapp's own invite email; "Create with password" shows
+  HR a one-time password to share.
+- If the learnapp expects a row in its own `profiles`-style table for each user, add
+  that insert at the marked **LEARNAPP PROFILE HOOK** in
+  `supabase/functions/learnapp-admin/index.ts`.
+
+## 5. Deploy on Vercel
+
+1. Push this repo to GitHub, import it in Vercel (framework: Vite — auto-detected).
+2. Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+3. `vercel.json` already rewrites all routes to `index.html` (SPA routing, including
+   the public `/u/:token` pages).
+4. After the first deploy, put the final URL in Supabase Auth → URL Configuration
+   (Site URL), or Google sign-in will bounce back to localhost.
+
+## 6. First-run checklist (in the app)
+
+1. **Settings → Company**: name, address, state, GSTIN, PO prefix, default PO terms
+   (all appear on the PO PDF; state drives the CGST+SGST vs IGST suggestion).
+2. **Settings → Users**: invite HR / purchase / approver users with roles.
+3. **Settings → Purchase setup**: check PO types, add delivery locations (with states),
+   and create at least one **approval rule** — POs cannot be submitted until a rule
+   matches them. A sensible start: one catch-all rule (any type, any location, any
+   amount) with you as the single approver; refine later.
+4. **People → Import CSV**: import the current employee sheet (export it as CSV first).
+   Rows with a matching employee code update instead of duplicating.
+5. Hit **Sync sheet** once and check the tab was written.
+
+## 7. How the pieces work
+
+- **Roles**: `admin` (everything), `hr`, `purchase`, `approver`. Admin implies the
+  others. RLS enforces module separation in the database, not just the UI — HR users
+  cannot read PO tables, purchase users cannot read employee data.
+- **PO lifecycle**: draft → submit (number assigned: `PREFIX/26-27/0001`, resets each
+  Indian FY; matching rule instantiates the approver chain) → each approver acts in
+  order (any rejection → rejected; reopen returns it to draft, keeping the number) →
+  approved → send/resend PDF by email (logged) → record receipts (partial/full
+  tracked per line) → close. Duplicate works from any status and creates a fresh draft.
+  All state transitions run through SECURITY DEFINER RPCs — the client can only edit
+  drafts.
+- **Employee links**: HR picks documents + fields on a person's Documents tab → gets a
+  tokenised URL (WhatsApp/email share built in) valid for 7–30 days. The employee
+  uploads/edits without login; only whitelisted fields can be written through a link,
+  and files go to the private `employee-docs` bucket. Links are trackable
+  (sent/opened/submitted) and revocable under Upload requests.
+- **Checklists**: templates under HR → Checklist templates; started per-person;
+  auto-complete when every item is done/NA.
+
+## 8. Costs
+
+Supabase free tier (2 active projects, 500 MB DB — note free projects pause after ~1
+week of zero traffic; daily use keeps it alive), Vercel Hobby, Resend free tier.
+₹0/month at current scale.
