@@ -55,11 +55,13 @@ export default function ChecklistTemplates() {
 
   return (
     <div>
-      <PageHeader
-        title="Checklist templates"
-        sub="What gets checked off when someone joins or leaves. Changes apply to newly started checklists."
-        actions={<Button icon={Plus} onClick={() => setNewTplOpen(true)}>New template</Button>}
-      />
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-sm text-slate-500">
+          What HR checks off when someone joins or leaves. Changes apply to newly started checklists; HR starts them from a
+          person's Checklists tab.
+        </p>
+        <Button icon={Plus} onClick={() => setNewTplOpen(true)}>New template</Button>
+      </div>
 
       {!templates?.length ? (
         <EmptyState title="No templates" action={<Button icon={Plus} onClick={() => setNewTplOpen(true)}>New template</Button>} />

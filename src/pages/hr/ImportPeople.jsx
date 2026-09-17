@@ -70,7 +70,7 @@ function mapStatus(v) {
   const s = norm(v)
   if (['active', 'current', 'working', 'employed', 'yes'].includes(s)) return 'active'
   if (['exited', 'exit', 'left', 'resigned', 'inactive', 'terminated', 'relieved'].includes(s)) return 'exited'
-  if (['candidate', 'offered', 'pipeline', 'shortlisted'].includes(s)) return 'candidate'
+  if (['joining', 'candidate', 'offered', 'prejoining'].includes(s)) return 'joining'
   if (['notjoined', 'declined', 'noshow'].includes(s)) return 'not_joined'
   return null
 }
@@ -203,7 +203,7 @@ export default function ImportPeople() {
               <span className="text-sm text-slate-600">If a row has no status column/value, treat it as</span>
               <Select className="w-40" value={defaultStatus} onChange={(e) => setDefaultStatus(e.target.value)}>
                 <option value="active">Active</option>
-                <option value="candidate">Candidate</option>
+                <option value="joining">Joining soon</option>
                 <option value="exited">Exited</option>
               </Select>
             </div>

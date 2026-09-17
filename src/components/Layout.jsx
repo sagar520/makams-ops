@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
-  LayoutDashboard, Users, Link2, ListChecks, Store, FileText, CheckSquare, Settings as SettingsIcon,
+  LayoutDashboard, Users, Link2, Briefcase, Store, FileText, CheckSquare, Settings as SettingsIcon,
   LogOut, Menu, X,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
@@ -77,8 +77,8 @@ export default function Layout({ children }) {
           <>
             <SectionLabel>HR</SectionLabel>
             <NavItem to="/people" icon={Users} label="People" onClick={close} />
+            <NavItem to="/candidates" icon={Briefcase} label="Candidates" onClick={close} />
             <NavItem to="/upload-requests" icon={Link2} label="Upload requests" onClick={close} />
-            <NavItem to="/checklists" icon={ListChecks} label="Checklist templates" onClick={close} />
           </>
         )}
 

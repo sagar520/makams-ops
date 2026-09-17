@@ -44,15 +44,15 @@ export default function Home() {
     queryKey: ['home-hr'],
     enabled: isHr,
     queryFn: async () => {
-      const [active, candidates, onboarding, exits] = await Promise.all([
+      const [active, pool, onboarding, exits] = await Promise.all([
         supabase.from('people').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('people').select('id', { count: 'exact', head: true }).eq('status', 'candidate'),
+        supabase.from('candidates').select('id', { count: 'exact', head: true }).in('status', ['new', 'screening', 'interview', 'offer', 'on_hold']),
         supabase.from('person_checklists').select('id', { count: 'exact', head: true }).eq('kind', 'onboarding').eq('status', 'in_progress'),
         supabase.from('person_checklists').select('id', { count: 'exact', head: true }).eq('kind', 'exit').eq('status', 'in_progress'),
       ])
       return {
         active: active.count ?? 0,
-        candidates: candidates.count ?? 0,
+        pool: pool.count ?? 0,
         onboarding: onboarding.count ?? 0,
         exits: exits.count ?? 0,
       }
@@ -101,7 +101,7 @@ export default function Home() {
         {isHr && (
           <>
             <Stat icon={Users} label="Active employees" value={hrStats.data?.active ?? '—'} loading={hrStats.isLoading} to="/people" tone="green" />
-            <Stat icon={UserPlus} label="Candidates" value={hrStats.data?.candidates ?? '—'} loading={hrStats.isLoading} to="/people?status=candidate" tone="sky" />
+            <Stat icon={UserPlus} label="Candidate pool" value={hrStats.data?.pool ?? '—'} loading={hrStats.isLoading} to="/candidates" tone="sky" />
             <Stat icon={ListChecks} label="Onboardings running" value={hrStats.data?.onboarding ?? '—'} loading={hrStats.isLoading} to="/people" tone="indigo" />
             <Stat icon={ListChecks} label="Exits running" value={hrStats.data?.exits ?? '—'} loading={hrStats.isLoading} to="/people?status=exited" tone="slate" />
           </>

@@ -44,10 +44,45 @@ export const PROFILE_FIELDS = [
 export const profileFieldLabel = (v) => PROFILE_FIELDS.find((f) => f.value === v)?.label || v
 
 export const PEOPLE_STATUS = [
-  { value: 'candidate', label: 'Candidate', tone: 'blue' },
+  { value: 'joining', label: 'Joining soon', tone: 'blue' },
   { value: 'active', label: 'Active', tone: 'green' },
   { value: 'exited', label: 'Exited', tone: 'gray' },
   { value: 'not_joined', label: 'Not joined', tone: 'amber' },
+]
+
+export const CANDIDATE_STATUS = [
+  { value: 'new', label: 'New', tone: 'blue' },
+  { value: 'screening', label: 'Screening', tone: 'indigo' },
+  { value: 'interview', label: 'Interview', tone: 'violet' },
+  { value: 'offer', label: 'Offer', tone: 'amber' },
+  { value: 'hired', label: 'Hired', tone: 'green' },
+  { value: 'rejected', label: 'Rejected', tone: 'red' },
+  { value: 'on_hold', label: 'On hold', tone: 'gray' },
+]
+
+export const candidateStatusMeta = (v) => CANDIDATE_STATUS.find((s) => s.value === v) || { label: v, tone: 'gray' }
+
+export const FORM_FIELD_TYPES = [
+  { value: 'text', label: 'Short text' },
+  { value: 'textarea', label: 'Paragraph' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'number', label: 'Number' },
+  { value: 'date', label: 'Date' },
+  { value: 'select', label: 'Dropdown' },
+  { value: 'file', label: 'File upload' },
+]
+
+export const FORM_MAP_TO = [
+  { value: '', label: 'Nothing (stored with the response only)' },
+  { value: 'full_name', label: 'Candidate name' },
+  { value: 'title', label: 'Title / role' },
+  { value: 'organization', label: 'Organisation' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'location', label: 'Location' },
+  { value: 'notes', label: 'Notes' },
+  { value: 'resume', label: 'Resume (file fields only)' },
 ]
 
 export const peopleStatusMeta = (v) => PEOPLE_STATUS.find((s) => s.value === v) || { label: v, tone: 'gray' }

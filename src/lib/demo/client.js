@@ -110,6 +110,14 @@ const hydrators = {
     return { ...a, people: p ? { full_name: p.full_name } : null }
   },
   receipts: (r) => ({ ...r, receipt_items: store.receipt_items.filter((ri) => ri.receipt_id === r.id) }),
+  form_links: (l) => {
+    const t = store.form_templates.find((x) => x.id === l.form_id)
+    return { ...l, form_templates: t ? { name: t.name, kind: t.kind } : null }
+  },
+  form_responses: (r) => {
+    const l = store.form_links.find((x) => x.id === r.link_id)
+    return { ...r, form_links: l ? { source_name: l.source_name } : null }
+  },
 }
 
 function hydrateTable(table) {
@@ -139,6 +147,10 @@ const insertDefaults = {
   learnapp_actions: () => ({ id: genId('la'), created_by: 'u-aakash', created_at: nowIso() }),
   sheet_sync_log: () => ({ id: genId('ss'), created_by: 'u-aakash', created_at: nowIso() }),
   app_settings: () => ({ updated_at: nowIso() }),
+  candidates: () => ({ id: genId('c'), status: 'new', extra: {}, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
+  form_templates: () => ({ id: genId('ft'), kind: 'general', fields: [], active: true, created_at: nowIso(), updated_at: nowIso() }),
+  form_links: () => ({ id: genId('fl'), token: genId('demo-link'), active: true, expires_at: null, submission_count: 0, created_by: 'u-aakash', created_at: nowIso() }),
+  form_responses: () => ({ id: genId('fr'), answers: {}, files: [], candidate_id: null, created_at: nowIso() }),
 }
 
 function afterWrite(table, rows) {
@@ -171,6 +183,10 @@ function cascadeDelete(table, row) {
   }
   if (table === 'checklist_templates') {
     store.checklist_template_items = store.checklist_template_items.filter((i) => i.template_id !== row.id)
+  }
+  if (table === 'form_templates') {
+    store.form_links = store.form_links.filter((l) => l.form_id !== row.id)
+    store.form_responses = store.form_responses.filter((r) => r.form_id !== row.id)
   }
 }
 
@@ -360,6 +376,20 @@ const rpcs = {
     link.last_used_at = nowIso()
     link.submitted_at = nowIso()
     return ok({ ok: true })
+  },
+
+  form_link_info: ({ p_token }) => {
+    const link = store.form_links.find((l) => l.token === p_token)
+    if (!link) return ok({ ok: false, reason: 'invalid' })
+    if (!link.active) return ok({ ok: false, reason: 'revoked' })
+    if (link.expires_at && new Date(link.expires_at) < new Date()) return ok({ ok: false, reason: 'expired' })
+    const form = store.form_templates.find((t) => t.id === link.form_id)
+    if (!form || !form.active) return ok({ ok: false, reason: 'revoked' })
+    const company = store.app_settings.find((s) => s.key === 'company')?.value?.name || 'Makams'
+    return ok({
+      ok: true, company, source_name: link.source_name,
+      form: { name: form.name, description: form.description, kind: form.kind, fields: form.fields },
+    })
   },
 
   submit_po: ({ p_po }) => {
@@ -577,6 +607,63 @@ async function invokeFunction(name, body = {}) {
     if (existing) Object.assign(existing, fields)
     else store.person_documents.push({ id: genId('d'), person_id: link.person_id, doc_type: body.doc_type, link_id: link.id, created_at: nowIso(), ...fields })
     link.last_used_at = nowIso()
+    return { ok: true }
+  }
+
+  if (name === 'public-form') {
+    const link = store.form_links.find((l) => l.token === body.token)
+    if (!link || !link.active) return { error: 'This link is not valid' }
+    if (link.expires_at && new Date(link.expires_at) < new Date()) return { error: 'This link has expired' }
+    const tpl = store.form_templates.find((t) => t.id === link.form_id)
+    if (!tpl || !tpl.active) return { error: 'This form is no longer accepting responses' }
+
+    const answers = body.answers || {}
+    const clean = {}
+    for (const f of tpl.fields) {
+      if (f.type === 'file') continue
+      const v = answers[f.key]
+      if (f.required && (v == null || String(v).trim() === '')) return { error: `"${f.label}" is required` }
+      if (v != null && String(v).trim() !== '') clean[f.key] = String(v)
+    }
+
+    const files = []
+    for (const f of tpl.fields) {
+      if (f.type !== 'file') continue
+      const file = body.files?.[f.key]
+      if (!file) {
+        if (f.required) return { error: `"${f.label}" is required` }
+        continue
+      }
+      const path = `${link.id}/${Date.now()}_${f.key}_${file.name}`
+      try { objectUrls[path] = URL.createObjectURL(file) } catch { /* ignore */ }
+      files.push({ key: f.key, path, name: file.name })
+    }
+
+    const response = { ...insertDefaults.form_responses(), form_id: tpl.id, link_id: link.id, answers: clean, files }
+    store.form_responses.unshift(response)
+
+    if (tpl.kind === 'candidate_intake') {
+      const mapped = {}
+      for (const f of tpl.fields) {
+        if (!f.map_to || f.type === 'file') continue
+        if (clean[f.key] != null) mapped[f.map_to] = clean[f.key]
+      }
+      const resumeField = tpl.fields.find((f) => f.type === 'file' && f.map_to === 'resume')
+      const resume = resumeField ? files.find((x) => x.key === resumeField.key) : null
+      if (mapped.full_name) {
+        const cand = {
+          ...insertDefaults.candidates(),
+          full_name: mapped.full_name, title: mapped.title || null, organization: mapped.organization || null,
+          email: mapped.email || null, phone: mapped.phone || null, location: mapped.location || null,
+          notes: mapped.notes || null, resume_path: resume?.path || null, resume_name: resume?.name || null,
+          source: link.source_name, link_id: link.id, response_id: response.id, extra: clean, created_by: link.created_by,
+        }
+        store.candidates.unshift(cand)
+        response.candidate_id = cand.id
+      }
+    }
+
+    link.submission_count = (link.submission_count || 0) + 1
     return { ok: true }
   }
 

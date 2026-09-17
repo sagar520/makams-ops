@@ -22,12 +22,18 @@ export const supabase = isDemo
       },
     })
 
-/** Public employee-portal URL for an upload link token. */
-export function portalUrl(token) {
+/** Public URL helper (hash-based in demo mode). */
+export function publicUrl(path) {
   return isDemo
-    ? `${window.location.origin}${window.location.pathname}#/u/${token}`
-    : `${window.location.origin}/u/${token}`
+    ? `${window.location.origin}${window.location.pathname}#${path}`
+    : `${window.location.origin}${path}`
 }
+
+/** Public employee-portal URL for an upload link token. */
+export const portalUrl = (token) => publicUrl(`/u/${token}`)
+
+/** Public form URL for a form link token. */
+export const formUrl = (token) => publicUrl(`/f/${token}`)
 
 /** Base URL for edge functions */
 export const functionsUrl = !isDemo && isConfigured ? `${url}/functions/v1` : ''

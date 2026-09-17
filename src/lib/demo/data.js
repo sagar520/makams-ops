@@ -42,9 +42,9 @@ export function buildSeedStore() {
     { id: 'p-08', emp_code: 'MKM-008', full_name: 'Meena Devi', status: 'active', department: 'Housekeeping', designation: 'Housekeeping Staff', employment_type: 'contract', date_of_join: '2025-08-18', phone: '97800 12034', monthly_gross: 14000, created_at: iso(45) },
     // joined recently — onboarding in progress
     { id: 'p-09', emp_code: 'MKM-009', full_name: 'Vikram Rathi', status: 'active', department: 'Quality', designation: 'Lab Chemist', employment_type: 'full_time', date_of_join: dateStr(-6), personal_email: 'vikram.rathi@gmail.com', phone: '98995 66778', monthly_gross: 36000, created_at: iso(12) },
-    // candidates
-    { id: 'p-10', emp_code: null, full_name: 'Neha Malhotra', status: 'candidate', department: 'Accounts', designation: 'Junior Accountant', personal_email: 'neha.malhotra11@gmail.com', phone: '98111 90233', notes: 'Offer accepted, joining 1st Oct. Documents received via link.', created_at: iso(9) },
-    { id: 'p-11', emp_code: null, full_name: 'Arjun Mehta', status: 'candidate', department: 'Sales', designation: 'Area Sales Manager', personal_email: 'arjun.mehta@outlook.com', phone: '99100 44556', notes: 'Final round cleared. Docs pending.', created_at: iso(4) },
+    // joining soon (offer accepted, pre-joining paperwork)
+    { id: 'p-10', emp_code: null, full_name: 'Neha Malhotra', status: 'joining', department: 'Accounts', designation: 'Junior Accountant', personal_email: 'neha.malhotra11@gmail.com', phone: '98111 90233', notes: 'Offer accepted, joining 1st Oct. Documents received via link.', created_at: iso(9) },
+    { id: 'p-11', emp_code: null, full_name: 'Arjun Mehta', status: 'joining', department: 'Sales', designation: 'Area Sales Manager', personal_email: 'arjun.mehta@outlook.com', phone: '99100 44556', notes: 'Final round cleared. Docs pending.', created_at: iso(4) },
     // exited
     { id: 'p-12', emp_code: 'MKM-000', full_name: 'Suresh Pillai', status: 'exited', department: 'Warehouse', designation: 'Store Assistant', date_of_join: '2022-11-01', date_of_exit: dateStr(-40), exit_reason: 'Relocated to Kochi', learnapp_user_id: 'lu-12', learnapp_status: 'disabled', created_at: iso(89) },
   ]
@@ -118,6 +118,61 @@ export function buildSeedStore() {
     { id: 'la-01', person_id: 'p-09', action: 'invite', status: 'error', detail: 'Invite failed: rate limit — retried OK next day (demo sample)', created_by: 'u-priya', created_at: iso(10) },
     { id: 'la-02', person_id: 'p-12', action: 'disable', status: 'ok', detail: 'suresh.p@gmail.com', created_by: 'u-priya', created_at: iso(40) },
     { id: 'la-03', person_id: 'p-05', action: 'create', status: 'ok', detail: 'arvind.k@gmail.com (lu-05)', created_by: 'u-priya', created_at: iso(69) },
+  ]
+
+  // ---------- candidate database & forms ----------
+
+  const form_templates = [
+    {
+      id: 'ft-intake', name: 'Candidate intake form',
+      description: 'Share this with industry sources to add candidates to the Makams talent pool.',
+      kind: 'candidate_intake', active: true, created_at: iso(20), updated_at: iso(20),
+      fields: [
+        { key: 'full_name', label: 'Candidate full name', type: 'text', required: true, options: [], map_to: 'full_name' },
+        { key: 'title', label: 'Current title / role', type: 'text', required: false, options: [], map_to: 'title' },
+        { key: 'organization', label: 'Current organisation', type: 'text', required: false, options: [], map_to: 'organization' },
+        { key: 'email', label: 'Email', type: 'email', required: false, options: [], map_to: 'email' },
+        { key: 'phone', label: 'Phone', type: 'phone', required: true, options: [], map_to: 'phone' },
+        { key: 'location', label: 'Location', type: 'text', required: false, options: [], map_to: 'location' },
+        { key: 'experience_years', label: 'Total experience (years)', type: 'number', required: false, options: [], map_to: null },
+        { key: 'resume', label: 'Resume (PDF)', type: 'file', required: false, options: [], map_to: 'resume' },
+        { key: 'notes', label: 'Anything we should know', type: 'textarea', required: false, options: [], map_to: 'notes' },
+      ],
+    },
+    {
+      id: 'ft-feedback', name: 'Interview feedback',
+      description: 'Filled by the interviewer after each round.',
+      kind: 'general', active: true, created_at: iso(15), updated_at: iso(15),
+      fields: [
+        { key: 'candidate_name', label: 'Candidate name', type: 'text', required: true, options: [], map_to: null },
+        { key: 'interviewer', label: 'Interviewer', type: 'text', required: true, options: [], map_to: null },
+        { key: 'round', label: 'Round', type: 'select', required: true, options: ['Screening call', 'Technical', 'Final'], map_to: null },
+        { key: 'rating', label: 'Overall rating', type: 'select', required: true, options: ['1 - No', '2 - Weak', '3 - OK', '4 - Good', '5 - Strong hire'], map_to: null },
+        { key: 'comments', label: 'Comments', type: 'textarea', required: false, options: [], map_to: null },
+      ],
+    },
+  ]
+
+  const form_links = [
+    { id: 'fl-01', form_id: 'ft-intake', token: 'demo-source-ramesh', source_name: 'Consultant Ramesh — TalentBridge', active: true, expires_at: null, submission_count: 3, created_by: 'u-priya', created_at: iso(18) },
+    { id: 'fl-02', form_id: 'ft-intake', token: 'demo-source-campus', source_name: 'Campus cell — GNDU Amritsar', active: true, expires_at: null, submission_count: 0, created_by: 'u-priya', created_at: iso(10) },
+  ]
+
+  const form_responses = [
+    { id: 'fr-01', form_id: 'ft-intake', link_id: 'fl-01', answers: { full_name: 'Ankit Malhotra', title: 'QA Manager', organization: 'Patanjali Foods', email: 'ankit.m@gmail.com', phone: '98123 44556', location: 'Haridwar', experience_years: '9' }, files: [{ key: 'resume', path: null, name: 'Ankit_Malhotra_CV.pdf' }], candidate_id: 'c-01', created_at: iso(16) },
+    { id: 'fr-02', form_id: 'ft-intake', link_id: 'fl-01', answers: { full_name: 'Shreya Iyer', title: 'R&D Executive — Nutraceuticals', organization: 'Himalaya Wellness', email: 'shreya.iyer@yahoo.com', phone: '99880 11223', location: 'Bengaluru' }, files: [], candidate_id: 'c-02', created_at: iso(12) },
+    { id: 'fr-03', form_id: 'ft-intake', link_id: 'fl-01', answers: { full_name: 'Mohit Saini', title: 'Boiler Operator', organization: 'Local extraction unit', phone: '97110 88996', location: 'Ludhiana', notes: 'Available immediately' }, files: [], candidate_id: 'c-05', created_at: iso(6) },
+  ]
+
+  const candidates = [
+    { id: 'c-01', full_name: 'Ankit Malhotra', title: 'QA Manager', organization: 'Patanjali Foods', email: 'ankit.m@gmail.com', phone: '98123 44556', location: 'Haridwar', status: 'interview', resume_path: null, resume_name: 'Ankit_Malhotra_CV.pdf', source: 'Consultant Ramesh — TalentBridge', link_id: 'fl-01', response_id: 'fr-01', notes: 'Strong on GMP documentation. 2nd round on Friday.', extra: {}, created_by: 'u-priya', created_at: iso(16), updated_at: iso(3) },
+    { id: 'c-02', full_name: 'Shreya Iyer', title: 'R&D Executive — Nutraceuticals', organization: 'Himalaya Wellness', email: 'shreya.iyer@yahoo.com', phone: '99880 11223', location: 'Bengaluru', status: 'screening', resume_path: null, resume_name: null, source: 'Consultant Ramesh — TalentBridge', link_id: 'fl-01', response_id: 'fr-02', notes: null, extra: {}, created_by: 'u-priya', created_at: iso(12), updated_at: iso(12) },
+    { id: 'c-03', full_name: 'Harjinder Pal', title: 'Production Head', organization: 'Chandigarh Botanicals', email: null, phone: '98761 20034', location: 'Mohali', status: 'offer', resume_path: null, resume_name: 'Harjinder_profile.pdf', source: 'Referral — Deepak Verma', link_id: null, response_id: null, notes: 'Offer sent 12 Sept, negotiating notice-period buyout.', extra: {}, created_by: 'u-priya', created_at: iso(25), updated_at: iso(2) },
+    { id: 'c-04', full_name: 'Nikita Rao', title: 'Regulatory Affairs Associate', organization: 'Arjuna Naturals', email: 'nikita.rao@outlook.com', phone: '90080 33445', location: 'Kochi', status: 'new', resume_path: null, resume_name: null, source: 'Naukri', link_id: null, response_id: null, notes: null, extra: {}, created_by: 'u-priya', created_at: iso(2), updated_at: iso(2) },
+    { id: 'c-05', full_name: 'Mohit Saini', title: 'Boiler Operator', organization: 'Local extraction unit', email: null, phone: '97110 88996', location: 'Ludhiana', status: 'new', resume_path: null, resume_name: null, source: 'Consultant Ramesh — TalentBridge', link_id: 'fl-01', response_id: 'fr-03', notes: 'Available immediately', extra: {}, created_by: 'u-priya', created_at: iso(6), updated_at: iso(6) },
+    { id: 'c-06', full_name: 'Divya Kapoor', title: 'B2B Sales Manager', organization: 'OmniActive Health', email: 'divya.k@gmail.com', phone: '98220 55667', location: 'Mumbai', status: 'hired', resume_path: null, resume_name: 'Divya_Kapoor_CV.pdf', source: 'LinkedIn outreach', link_id: null, response_id: null, notes: 'Accepted! Joining 1 Nov — add to People closer to the date.', extra: {}, created_by: 'u-priya', created_at: iso(40), updated_at: iso(5) },
+    { id: 'c-07', full_name: 'Rakesh Yadav', title: 'Store Keeper', organization: 'AmbeAgro', email: null, phone: '96500 77881', location: 'Ludhiana', status: 'rejected', resume_path: null, resume_name: null, source: 'Walk-in', link_id: null, response_id: null, notes: 'Salary expectation well above band.', extra: {}, created_by: 'u-priya', created_at: iso(30), updated_at: iso(22) },
+    { id: 'c-08', full_name: 'Pooja Bhatt', title: 'QC Chemist', organization: 'NutraLab India', email: 'pooja.bhatt@gmail.com', phone: '98991 22110', location: 'Panchkula', status: 'on_hold', resume_path: null, resume_name: 'Pooja_QC_resume.pdf', source: 'Consultant Ramesh — TalentBridge', link_id: null, response_id: null, notes: 'Good profile — revisit when second QC seat opens.', extra: {}, created_by: 'u-priya', created_at: iso(35), updated_at: iso(20) },
   ]
 
   const sheet_sync_log = [
@@ -267,6 +322,7 @@ export function buildSeedStore() {
     app_users, app_settings, people, person_documents, upload_links,
     checklist_templates, checklist_template_items, person_checklists, person_checklist_items,
     learnapp_actions, sheet_sync_log,
+    candidates, form_templates, form_links, form_responses,
     po_types, delivery_locations, vendors, approval_rules, approval_rule_steps,
     purchase_orders, po_items, po_approval_steps, po_events, receipts, receipt_items,
     _po_counter: 7,

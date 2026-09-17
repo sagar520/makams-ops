@@ -2,9 +2,15 @@
 
 Internal operations app for Makams — HR and Purchase.
 
-**HR**: employee database (candidates → active → exited), document collection via
-no-login links sent to employees, onboarding/exit checklists, one-way sync **to** the
-company employee Google Sheet, and user management for the CRIL learnapp.
+**HR**: employee database (joining → active → exited), a separate **candidate
+database** (talent pool tracked by name/title/org/status/resume, filled by industry
+sources through shareable no-login links), document collection via no-login links sent
+to employees, onboarding/exit checklists, one-way sync **to** the company employee
+Google Sheet, and user management for the CRIL learnapp.
+
+**Admin**: manages users/roles, the jotform-style **form builder** (candidate-intake
+and general forms), checklist templates, PO types/locations/approval rules, and company
+settings. HR and Purchase roles each see only their own module.
 
 **Purchase**: vendors, purchase orders with a configurable approval matrix
 (rules on PO type / delivery location / amount → ordered approver chain), PO PDF
@@ -85,6 +91,7 @@ Four functions live in `supabase/functions/`:
 |---|---|---|
 | `send-po` | Emails the PO PDF to vendors via Resend, logs sends | `RESEND_API_KEY`, `PO_FROM_EMAIL` |
 | `public-upload` | Receives employee document uploads from `/u/:token` pages | — |
+| `public-form` | Receives form submissions (candidate intake etc.) from `/f/:token` pages | — |
 | `sync-sheet` | Overwrites the employee tab in your Google Sheet from the app | `GOOGLE_SERVICE_ACCOUNT`, `SHEET_ID`, `SHEET_TAB` |
 | `learnapp-admin` | Creates/disables learnapp accounts | `LEARNAPP_URL`, `LEARNAPP_SERVICE_ROLE_KEY` |
 
@@ -95,6 +102,7 @@ supabase functions deploy send-po
 supabase functions deploy sync-sheet
 supabase functions deploy learnapp-admin
 supabase functions deploy public-upload --no-verify-jwt   # public by design; every request is validated against the link token
+supabase functions deploy public-form --no-verify-jwt     # same: token-gated public endpoint
 ```
 
 Set the secrets:
@@ -181,8 +189,20 @@ set — you can go live without them and add them later.
   uploads/edits without login; only whitelisted fields can be written through a link,
   and files go to the private `employee-docs` bucket. Links are trackable
   (sent/opened/submitted) and revocable under Upload requests.
-- **Checklists**: templates under HR → Checklist templates; started per-person;
-  auto-complete when every item is done/NA.
+- **Candidates & source links**: the candidate database is separate from employees.
+  Admin builds the intake form (Settings → Forms); HR creates one link per industry
+  source (Candidates → Sources & links) and shares it. Every submission is stored as a
+  response and lands in the candidate database tagged with its source, resume attached.
+  Status is a simple dropdown per candidate (New → Screening → Interview → Offer →
+  Hired / Rejected / On hold). Marking someone Hired does **not** create an employee —
+  add them under People when they actually join.
+- **Forms**: admin-only builder, jotform-style — add fields (text, paragraph, email,
+  phone, number, date, dropdown, file), mark required, reorder, live preview.
+  Candidate-intake forms map fields into the candidate database; general forms just
+  collect responses (viewable per form).
+- **Checklists**: templates are managed by admin (Settings → Checklists); HR starts
+  them per-person from the person's Checklists tab; auto-complete when every item is
+  done/NA.
 
 ## 8. Costs
 

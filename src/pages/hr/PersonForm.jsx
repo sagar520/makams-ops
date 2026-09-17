@@ -6,7 +6,7 @@ import { PageHeader, Card, Button, Input, Select, Textarea, Field, FullPageSpinn
 import { PEOPLE_STATUS } from '../../lib/constants'
 
 const EMPTY = {
-  full_name: '', emp_code: '', status: 'candidate', department: '', designation: '', location: '',
+  full_name: '', emp_code: '', status: 'joining', department: '', designation: '', location: '',
   employment_type: '', date_of_join: '', date_of_exit: '', exit_reason: '',
   personal_email: '', work_email: '', phone: '', alt_phone: '',
   date_of_birth: '', gender: '', blood_group: '',
@@ -81,7 +81,7 @@ export default function PersonForm() {
     <div className="mx-auto max-w-3xl">
       <PageHeader
         title={isEdit ? `Edit ${existing?.full_name || ''}` : 'Add person'}
-        sub={isEdit ? undefined : 'Add a candidate or an employee. You can send them a link later to fill in the rest themselves.'}
+        sub={isEdit ? undefined : 'Add an employee or someone about to join. You can send them a link later to fill in the rest themselves.'}
         actions={
           <>
             <Button variant="secondary" onClick={() => navigate(-1)}>Cancel</Button>

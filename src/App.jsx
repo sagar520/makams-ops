@@ -10,8 +10,9 @@ import PersonDetail from './pages/hr/PersonDetail'
 import PersonForm from './pages/hr/PersonForm'
 import ImportPeople from './pages/hr/ImportPeople'
 import UploadRequests from './pages/hr/UploadRequests'
-import ChecklistTemplates from './pages/hr/ChecklistTemplates'
+import Candidates from './pages/hr/Candidates'
 import UploadPortal from './pages/public/UploadPortal'
+import FormPage from './pages/public/FormPage'
 import Vendors from './pages/purchase/Vendors'
 import POList from './pages/purchase/POList'
 import POEditor from './pages/purchase/POEditor'
@@ -95,8 +96,9 @@ export default function App() {
         {isDemo && <DemoBanner />}
         <Router>
           <Routes>
-            {/* Public: employee document/detail submission via tokenised link */}
+            {/* Public: tokenised links — employee document portal, source/candidate forms */}
             <Route path="/u/:token" element={<UploadPortal />} />
+            <Route path="/f/:token" element={<FormPage />} />
 
             <Route element={<Protected />}>
               <Route path="/" element={<Home />} />
@@ -107,7 +109,7 @@ export default function App() {
               <Route path="/people/:id" element={<RequireRole roles={['hr']}><PersonDetail /></RequireRole>} />
               <Route path="/people/:id/edit" element={<RequireRole roles={['hr']}><PersonForm /></RequireRole>} />
               <Route path="/upload-requests" element={<RequireRole roles={['hr']}><UploadRequests /></RequireRole>} />
-              <Route path="/checklists" element={<RequireRole roles={['hr']}><ChecklistTemplates /></RequireRole>} />
+              <Route path="/candidates" element={<RequireRole roles={['hr']}><Candidates /></RequireRole>} />
 
               <Route path="/vendors" element={<RequireRole roles={['purchase']}><Vendors /></RequireRole>} />
               <Route path="/pos" element={<RequireRole roles={['purchase', 'approver']}><POList /></RequireRole>} />

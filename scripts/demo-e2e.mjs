@@ -45,7 +45,7 @@ await expectText('PO/26-27/0005', 'pending PO (step 2 = me) listed on dashboard'
 // 2. People
 await page.goto(`${BASE}/#/people`)
 await expectText('Deepak Verma', 'people list renders')
-await clickTabAndExpect('button:has-text("Candidates")', 'Neha Malhotra', 'candidates tab')
+await clickTabAndExpect('button:has-text("Joining")', 'Neha Malhotra', 'joining tab')
 
 // 3. Person detail + checklist tab
 await page.goto(`${BASE}/#/people/p-09`)
@@ -84,6 +84,44 @@ await page.goto(`${BASE}/#/u/demo-arjun`)
 await expectText('Hi Arjun', 'portal greets candidate')
 await expectText('PAN card', 'portal lists requested docs')
 await expectText('Your details', 'portal shows profile form')
+
+
+// 9b. Candidate database
+await page.goto(`${BASE}/#/candidates`)
+await expectText('Ankit Malhotra', 'candidate database renders')
+await expectText('Consultant Ramesh', 'source shown on candidates')
+// change a status via the row dropdown (Nikita Rao: new -> screening)
+{
+  const row = page.locator('tr', { hasText: 'Nikita Rao' })
+  await row.locator('select').selectOption('screening')
+  await page.waitForTimeout(600)
+}
+await clickTabAndExpect('button:has-text("Sources & links")', 'New source link', 'source links tab')
+await expectText('Consultant Ramesh — TalentBridge', 'source link listed')
+
+// 9c. Public intake form: submit a candidate
+await page.goto(`${BASE}/#/f/demo-source-ramesh`)
+await expectText('Candidate intake form', 'public form renders')
+await page.fill('input >> nth=0', 'Test E2E Candidate')
+// phone is required — find its input by label proximity: fill all text inputs minimally
+const inputs = page.locator('input:visible')
+await page.getByLabel(/Phone/i).fill('9000000000').catch(async () => {
+  // fallback: 5th visible input is phone in default form order
+  await inputs.nth(4).fill('9000000000')
+})
+await page.click('button:has-text("Submit")')
+await expectText('Submitted — thank you', 'form submission accepted')
+await page.waitForTimeout(21000) // let the candidates query go stale so remount refetches
+await page.goto(`${BASE}/#/candidates`)
+await expectText('Test E2E Candidate', 'submission created a candidate')
+
+// 9d. Admin form builder + checklists moved to settings
+await page.goto(`${BASE}/#/settings`)
+await clickTabAndExpect('button:has-text("Forms")', 'Candidate intake form', 'forms tab lists intake form')
+await page.click('button:has-text("New form")')
+await expectText('Add field', 'form builder opens')
+await page.keyboard.press('Escape')
+await clickTabAndExpect('button:has-text("Checklists")', 'Standard onboarding', 'checklists managed in settings')
 
 // 9. Vendors + settings
 await page.goto(`${BASE}/#/vendors`)

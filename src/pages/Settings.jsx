@@ -9,6 +9,8 @@ import {
 } from '../components/ui'
 import { ROLES } from '../lib/constants'
 import { inr, fmtDateTime } from '../lib/format'
+import FormsTab from './admin/FormsTab'
+import ChecklistTemplates from './hr/ChecklistTemplates'
 
 export default function Settings() {
   const [tab, setTab] = useState('users')
@@ -20,6 +22,8 @@ export default function Settings() {
         tabs={[
           { value: 'users', label: 'Users' },
           { value: 'company', label: 'Company' },
+          { value: 'forms', label: 'Forms' },
+          { value: 'checklists', label: 'Checklists' },
           { value: 'purchase', label: 'Purchase setup' },
           { value: 'integrations', label: 'Integrations' },
         ]}
@@ -28,6 +32,8 @@ export default function Settings() {
       />
       {tab === 'users' && <UsersTab />}
       {tab === 'company' && <CompanyTab />}
+      {tab === 'forms' && <FormsTab />}
+      {tab === 'checklists' && <ChecklistTemplates />}
       {tab === 'purchase' && <PurchaseTab />}
       {tab === 'integrations' && <IntegrationsTab />}
     </div>

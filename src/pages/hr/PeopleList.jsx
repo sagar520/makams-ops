@@ -29,7 +29,7 @@ export default function PeopleList() {
   })
 
   const counts = useMemo(() => {
-    const c = { active: 0, candidate: 0, exited: 0, not_joined: 0 }
+    const c = { active: 0, joining: 0, exited: 0, not_joined: 0 }
     for (const p of people || []) c[p.status] = (c[p.status] || 0) + 1
     return c
   }, [people])
@@ -79,7 +79,7 @@ export default function PeopleList() {
         <Tabs
           tabs={[
             { value: 'active', label: 'Active', count: counts.active },
-            { value: 'candidate', label: 'Candidates', count: counts.candidate },
+            { value: 'joining', label: 'Joining', count: counts.joining },
             { value: 'exited', label: 'Exited', count: counts.exited },
             { value: 'not_joined', label: 'Not joined', count: counts.not_joined },
           ]}
