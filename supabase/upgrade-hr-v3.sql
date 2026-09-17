@@ -2,7 +2,15 @@
 -- Makams Ops — UPGRADE for your live project (run once)
 -- Applies migrations 0006 + 0007 and refreshes the dummy data.
 -- Your existing rows are kept (candidate columns are renamed in place).
+-- Run this ONCE — if it has already been applied, it stops with a
+-- clear message and changes nothing.
 -- ============================================================
+
+do $$ begin
+  if to_regclass('public.prospectives') is not null then
+    raise exception 'Already applied — this upgrade has run before. Skip this file; nothing was changed.';
+  end if;
+end $$;
 
 -- ============================================================
 -- Makams Ops — 0006 HR v3:

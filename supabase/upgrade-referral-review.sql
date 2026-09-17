@@ -1,6 +1,7 @@
 -- ============================================================
--- Makams Ops — UPGRADE: referral review queue (run once)
+-- Makams Ops — UPGRADE: referral review queue
 -- Requires the previous upgrade (upgrade-hr-v3.sql) to be applied first.
+-- Safe to run more than once — it skips anything already in place.
 -- ============================================================
 
 do $$ begin
@@ -10,13 +11,13 @@ do $$ begin
 end $$;
 
 -- ============================================================
--- Makams Ops — 0008: referral review queue
+-- 0008: referral review queue
 -- Form submissions no longer land straight in the Candidates DB.
 -- They wait as pending entries that HR can edit, then approve
 -- into the DB (or reject).
 -- ============================================================
 
-create table public.referral_submissions (
+create table if not exists public.referral_submissions (
   id               uuid primary key default gen_random_uuid(),
   response_id      uuid references public.form_responses (id) on delete set null,
   link_id          uuid references public.form_links (id) on delete set null,
@@ -37,13 +38,15 @@ create table public.referral_submissions (
   updated_at       timestamptz not null default now()
 );
 
-create index referral_submissions_status_idx on public.referral_submissions (status);
-create index referral_submissions_response_idx on public.referral_submissions (response_id);
+create index if not exists referral_submissions_status_idx on public.referral_submissions (status);
+create index if not exists referral_submissions_response_idx on public.referral_submissions (response_id);
 
+drop trigger if exists set_updated_at on public.referral_submissions;
 create trigger set_updated_at before update on public.referral_submissions
   for each row execute function public.tg_set_updated_at();
 
 alter table public.referral_submissions enable row level security;
+drop policy if exists referral_submissions_all on public.referral_submissions;
 create policy referral_submissions_all on public.referral_submissions
   for all to authenticated using (public.has_role('hr')) with check (public.has_role('hr'));
 
@@ -80,13 +83,15 @@ end $$;
 
 grant execute on function public.approve_referral_submission(uuid) to authenticated;
 
-
--- dummy top-up: a fresh pending submission so the queue isn't empty
+-- dummy top-up: a couple of pending submissions so the queue isn't empty.
+-- Skipped entirely if the queue already has anything in it.
 insert into public.referral_submissions
   (source, referred_by_name, referrer_emp_id, referrer_phone, full_name, designation, area, current_company, phone)
-values
-  ('Consultant Ramesh — TalentBridge', 'Ramesh Kumar (TalentBridge)', null, '98150 00110', 'Gaurav Nanda', 'Sales Officer', 'Patiala', 'Dabur (distributor)', '98700 45612'),
-  ('Consultant Ramesh — TalentBridge', 'Ramesh Kumar (TalentBridge)', null, '98150 00110', 'Simarjit Dhillon', 'Sales Rep', 'Moga', 'Local FMCG stockist', '97910 33445');
+select * from (values
+  ('Consultant Ramesh — TalentBridge', 'Ramesh Kumar (TalentBridge)', null::text, '98150 00110', 'Gaurav Nanda', 'Sales Officer', 'Patiala', 'Dabur (distributor)', '98700 45612'),
+  ('Consultant Ramesh — TalentBridge', 'Ramesh Kumar (TalentBridge)', null::text, '98150 00110', 'Simarjit Dhillon', 'Sales Rep', 'Moga', 'Local FMCG stockist', '97910 33445')
+) as v
+where not exists (select 1 from public.referral_submissions);
 
-select 'Review queue installed: ' || count(*) || ' pending submissions waiting' as result
+select 'Review queue ready: ' || count(*) || ' pending submissions waiting' as result
   from public.referral_submissions where status = 'pending';
