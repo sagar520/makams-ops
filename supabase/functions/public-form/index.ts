@@ -66,8 +66,8 @@ Deno.serve(async (req) => {
       return json({ error: 'Your phone must be a 10-digit Indian mobile number' }, 400)
     }
 
-    if (!cands.length) return json({ error: 'Add at least one candidate' }, 400)
-    if (cands.length > 50) return json({ error: 'Maximum 50 candidates per submission' }, 400)
+    if (!cands.length) return json({ error: 'Add at least one contact' }, 400)
+    if (cands.length > 50) return json({ error: 'Maximum 50 contacts per submission' }, 400)
 
     const rows: any[] = []
     for (let i = 0; i < cands.length; i++) {
@@ -84,8 +84,8 @@ Deno.serve(async (req) => {
         ['area', 'area'], ['current_company', 'current company'],
       ]
       const missing = required.find(([k]) => !(row as any)[k])
-      if (missing) return json({ error: `Candidate ${i + 1}: ${missing[1]} is required` }, 400)
-      if (!row.phone) return json({ error: `Candidate ${i + 1}: phone must be a 10-digit Indian mobile number` }, 400)
+      if (missing) return json({ error: `Contact ${i + 1}: ${missing[1]} is required` }, 400)
+      if (!row.phone) return json({ error: `Contact ${i + 1}: phone must be a 10-digit Indian mobile number` }, 400)
       rows.push(row)
     }
 

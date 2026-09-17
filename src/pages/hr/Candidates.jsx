@@ -614,6 +614,18 @@ function ReferralLinks() {
     const { error } = await supabase.from('form_links').update({ active: !l.active }).eq('id', l.id)
     if (error) return toast(error.message, 'error')
     qc.invalidateQueries({ queryKey: ['form-links'] })
+    toast(l.active ? 'Link disabled' : 'Link enabled')
+  }
+
+  const remove = async (l) => {
+    const warn = l.submission_count
+      ? `Delete the link for ${l.source_name}? The ${l.submission_count} submission${l.submission_count > 1 ? 's' : ''} already received stay in the database.`
+      : `Delete the link for ${l.source_name}?`
+    if (!window.confirm(warn)) return
+    const { error } = await supabase.from('form_links').delete().eq('id', l.id)
+    if (error) return toast(error.message, 'error')
+    qc.invalidateQueries({ queryKey: ['form-links'] })
+    toast('Link deleted')
   }
 
   if (isLoading) return <FullPageSpinner />
@@ -664,6 +676,7 @@ function ReferralLinks() {
                   <div className="flex justify-end gap-1">
                     {!expired(l) && <Button variant="ghost" size="xs" icon={Copy} onClick={() => copy(l)}>Copy link</Button>}
                     <Button variant="ghost" size="xs" icon={Ban} onClick={() => toggle(l)}>{l.active ? 'Disable' : 'Enable'}</Button>
+                    <Button variant="dangerSubtle" size="xs" icon={Trash2} onClick={() => remove(l)}>Delete</Button>
                   </div>
                 </Td>
               </Tr>
@@ -680,8 +693,9 @@ function ReferralLinks() {
 function NewLinkModal({ onClose }) {
   const qc = useQueryClient()
   const toast = useToast()
-  const [sourceName, setSourceName] = useState('')
-  const [personId, setPersonId] = useState('')
+  const [personId, setPersonId] = useState('')          // '' = nobody picked yet, 'outside' = not an employee
+  const [outsideName, setOutsideName] = useState('')
+  const [outsidePhone, setOutsidePhone] = useState('')
   const [created, setCreated] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -708,21 +722,24 @@ function NewLinkModal({ onClose }) {
   })
 
   const person = people.find((p) => p.id === personId) || null
+  const outside = personId === 'outside'
+  const referrerName = person?.full_name || (outside ? outsideName.trim() : '')
 
   const create = async () => {
+    if (!personId) return toast('Choose who this link is for', 'error')
+    if (!referrerName) return toast("Enter the person's name", 'error')
+    if (outside && outsidePhone && !isMobile(outsidePhone)) return toast(`Phone: ${MOBILE_HINT}`, 'error')
     if (!referralForm) return toast('No active referral form found — ask the admin to check Settings → Forms', 'error')
-    const label = sourceName.trim() || person?.full_name || ''
-    if (!label) return toast('Name the source (e.g. "Sales team — Punjab")', 'error')
     setSaving(true)
     try {
       const { data, error } = await supabase
         .from('form_links')
         .insert({
           form_id: referralForm.id,
-          source_name: label,
-          referrer_name: person?.full_name ?? null,
+          source_name: referrerName,
+          referrer_name: referrerName,
           referrer_emp_id: person?.emp_code ?? null,
-          referrer_phone: person ? normalizeMobile(person.phone) : null,
+          referrer_phone: person ? normalizeMobile(person.phone) : normalizeMobile(outsidePhone),
         })
         .select('token')
         .single()
@@ -744,7 +761,7 @@ function NewLinkModal({ onClose }) {
       {created ? (
         <div className="space-y-3">
           <p className="text-sm text-slate-600">
-            Share this with <span className="font-medium">{sourceName || person?.full_name}</span> — no login needed. It expires in 7 days.
+            Share this with <span className="font-medium">{referrerName}</span> — no login needed. It expires in 7 days.
           </p>
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <code className="min-w-0 flex-1 truncate text-xs text-slate-700">{created}</code>
@@ -753,18 +770,39 @@ function NewLinkModal({ onClose }) {
         </div>
       ) : (
         <div className="space-y-4">
-          <Field label="Issue to an employee" hint="Their name and EMP ID are then filled in on the form — they only add candidates.">
-            <Select value={personId} onChange={(e) => setPersonId(e.target.value)}>
-              <option value="">Nobody in particular — the referrer types their own details</option>
+          <Field label="Who is this link for?" required
+            hint="Their details are filled in on the form automatically — they only add their contacts.">
+            <Select value={personId} onChange={(e) => setPersonId(e.target.value)} autoFocus>
+              <option value="">Select…</option>
               {people.map((p) => (
                 <option key={p.id} value={p.id}>{p.full_name}{p.emp_code ? ` · ${p.emp_code}` : ''}</option>
               ))}
+              <option value="outside">Someone outside the company (consultant, campus cell…)</option>
             </Select>
           </Field>
-          <Field label="Source name" required={!person} hint="Tags every candidate they submit">
-            <Input value={sourceName} onChange={(e) => setSourceName(e.target.value)}
-              placeholder={person ? person.full_name : 'e.g. Sales team — Punjab / Consultant Ramesh'} autoFocus />
-          </Field>
+
+          {outside && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Their name" required>
+                <Input value={outsideName} onChange={(e) => setOutsideName(e.target.value)} placeholder="e.g. Ramesh Kumar (TalentBridge)" />
+              </Field>
+              <Field label="Their phone" hint={MOBILE_HINT}>
+                <div className="flex">
+                  <span className="inline-flex items-center rounded-l-lg border border-r-0 border-slate-300 bg-slate-100 px-2.5 text-sm text-slate-500">+91</span>
+                  <Input className="rounded-l-none" inputMode="numeric" placeholder="98765 43210"
+                    value={outsidePhone} onChange={(e) => setOutsidePhone(mobileInput(e.target.value))} />
+                </div>
+              </Field>
+            </div>
+          )}
+
+          {person && (
+            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              The form will show <span className="font-medium text-slate-700">{person.full_name}</span>
+              {person.emp_code ? ` (${person.emp_code})` : ''} as the referrer — they can't change it.
+            </p>
+          )}
+
           <p className="flex items-center gap-1.5 text-xs text-slate-400">
             <Clock className="h-3.5 w-3.5" /> The link stops working automatically 7 days from now.
           </p>

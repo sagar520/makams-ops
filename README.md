@@ -197,10 +197,12 @@ set — you can go live without them and add them later.
   Scheduled → Offer Letter Sent → Joined, plus Rejected), with status/area/source
   filters. Each row can carry an optional **resume** (private
   `prospective-resumes` bucket, HR-only, opened through a short-lived signed URL).
-- **Candidates DB & referral links**: the raw referral pool. HR creates one link per
-  source (Candidates DB → Referral links) and can **issue a link to a specific
-  employee** — their name and EMP ID are then filled in and locked on the form, so the
-  referrer only adds candidates. Every link **expires 7 days** after it is created.
+- **Candidates DB & referral links**: the raw referral pool. Every link is **issued to
+  someone** — an employee picked from the roster, or a named outside source (consultant,
+  campus cell). Their name, EMP ID and phone come from the link, so the form shows the
+  referrer's details read-only and they only fill in **Your Contacts**. HR can disable
+  or delete a link at any time; submissions already received are kept. Every link
+  **expires 7 days** after it is created.
   The public form takes the referrer's details once, then a table of candidates where
   **name, phone, designation, area and current company are all required**, and phone
   must be an Indian mobile — it is stored canonically as `+91XXXXXXXXXX` (validated in

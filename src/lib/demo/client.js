@@ -691,7 +691,7 @@ async function invokeFunction(name, body = {}) {
       }
 
       const cands = body.answers?.candidates || []
-      if (!cands.length) return { error: 'Add at least one candidate' }
+      if (!cands.length) return { error: 'Add at least one contact' }
       const rows = []
       for (let i = 0; i < cands.length; i++) {
         const c = cands[i] || {}
@@ -704,8 +704,8 @@ async function invokeFunction(name, body = {}) {
         }
         const missing = [['full_name', 'name'], ['designation', 'designation'], ['area', 'area'], ['current_company', 'current company']]
           .find(([k]) => !row[k])
-        if (missing) return { error: `Candidate ${i + 1}: ${missing[1]} is required` }
-        if (!row.phone) return { error: `Candidate ${i + 1}: phone must be a 10-digit Indian mobile number` }
+        if (missing) return { error: `Contact ${i + 1}: ${missing[1]} is required` }
+        if (!row.phone) return { error: `Contact ${i + 1}: phone must be a 10-digit Indian mobile number` }
         rows.push(row)
       }
 

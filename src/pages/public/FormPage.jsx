@@ -167,7 +167,7 @@ const emptyRow = () => ({ key: ++rowKey, name: '', designation: '', area: '', cu
 
 function ReferralForm({ token, info, onDone }) {
   const linked = info.referrer || {}
-  const locked = !!linked.locked
+  const locked = !!linked.locked          // the link knows who the referrer is
   const [referrer, setReferrer] = useState({
     name: linked.name || '',
     emp_id: linked.emp_id || '',
@@ -194,17 +194,16 @@ function ReferralForm({ token, info, onDone }) {
   const submit = async () => {
     setError(null)
     if (!referrer.name.trim()) return setError('Please enter your name')
-    if (referrer.phone && !isMobile(referrer.phone)) return setError(`Your phone: ${MOBILE_HINT}`)
 
     const filled = rows.filter(started)
-    if (!filled.length) return setError('Add at least one candidate')
+    if (!filled.length) return setError('Add at least one contact')
 
     for (let i = 0; i < filled.length; i++) {
       const r = filled[i]
       for (const [k, label] of REQUIRED) {
-        if (!String(r[k] || '').trim()) return setError(`Candidate ${i + 1}: ${label} is required`)
+        if (!String(r[k] || '').trim()) return setError(`Contact ${i + 1}: ${label} is required`)
       }
-      if (!isMobile(r.phone)) return setError(`Candidate ${i + 1}: phone must be a ${MOBILE_HINT}`)
+      if (!isMobile(r.phone)) return setError(`Contact ${i + 1}: phone must be a ${MOBILE_HINT}`)
     }
 
     setSubmitting(true)
@@ -246,34 +245,50 @@ function ReferralForm({ token, info, onDone }) {
 
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-3 text-sm font-semibold text-slate-800">Your details</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="Your name" required>
-              <Input value={referrer.name} onChange={setRef('name')} disabled={locked} className={locked ? 'bg-slate-50 text-slate-500' : undefined} />
-            </Field>
-            <Field label="Employee ID" hint={locked ? undefined : 'If you work at Makams'}>
-              <Input value={referrer.emp_id} onChange={setRef('emp_id')} placeholder="e.g. SALES001" disabled={locked} className={locked ? 'bg-slate-50 text-slate-500' : undefined} />
-            </Field>
-            <Field label="Your phone" hint={MOBILE_HINT}>
-              <PhoneInput value={referrer.phone} onChange={setRef('phone')} />
-            </Field>
-          </div>
-          {locked && (
-            <p className="mt-3 text-xs text-slate-400">
-              This link was issued to you, so your name and Employee ID are filled in already.
-            </p>
+          {locked ? (
+            <>
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-3">
+                <div>
+                  <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Name</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-slate-900">{referrer.name}</dd>
+                </div>
+                {referrer.emp_id && (
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Employee ID</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-slate-900">{referrer.emp_id}</dd>
+                  </div>
+                )}
+                {referrer.phone && (
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Phone</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-slate-900">+91 {referrer.phone.slice(0, 5)} {referrer.phone.slice(5)}</dd>
+                  </div>
+                )}
+              </dl>
+              <p className="mt-3 text-xs text-slate-400">
+                This link was issued to you, so your details are filled in already. Not you?
+                Ask HR for your own link.
+              </p>
+            </>
+          ) : (
+            // older links created before referrers were attached
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Your name" required><Input value={referrer.name} onChange={setRef('name')} /></Field>
+              <Field label="Employee ID" hint="If you work at Makams"><Input value={referrer.emp_id} onChange={setRef('emp_id')} placeholder="e.g. SALES001" /></Field>
+            </div>
           )}
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-3">
-            <h2 className="text-sm font-semibold text-slate-800">Candidates you're referring</h2>
-            <p className="text-xs text-slate-400">Add as many as you like — every field is required for each candidate.</p>
+            <h2 className="text-sm font-semibold text-slate-800">Your Contacts</h2>
+            <p className="text-xs text-slate-400">Add as many as you like — every field is required for each contact.</p>
           </div>
           <div className="space-y-3 p-4">
             {rows.map((r, i) => (
               <div key={r.key} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Candidate {i + 1}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Contact {i + 1}</p>
                   {rows.length > 1 && (
                     <button className="text-slate-300 hover:text-red-500" onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}>
                       <X className="h-4 w-4" />
@@ -291,9 +306,9 @@ function ReferralForm({ token, info, onDone }) {
                 </div>
               </div>
             ))}
-            <Button variant="secondary" size="sm" icon={Plus} onClick={() => setRows((rs) => [...rs, emptyRow()])}>Add another candidate</Button>
+            <Button variant="secondary" size="sm" icon={Plus} onClick={() => setRows((rs) => [...rs, emptyRow()])}>Add another contact</Button>
             <Button className="w-full" loading={submitting} onClick={submit}>
-              Submit {readyCount || ''} candidate{readyCount === 1 ? '' : 's'}
+              Submit {readyCount || ''} contact{readyCount === 1 ? '' : 's'}
             </Button>
           </div>
         </div>

@@ -149,36 +149,79 @@ await expectText('Mohit Saini', 'copied row appears on the sheet')
 // 6. Referral links tab
 await page.goto(`${BASE}/#/candidates`)
 await clickTabAndExpect('button:has-text("Referral links")', 'New referral link', 'referral links tab')
-await expectText('Consultant Ramesh — TalentBridge', 'source link listed')
+{
+  // a new link must name a referrer
+  await page.click('button:has-text("New referral link")')
+  await page.waitForSelector('text=Who is this link for?', { timeout: 8000 })
+  await page.click('button:has-text("Create link")')
+  await page.waitForSelector('text=Choose who this link is for', { timeout: 8000 })
+  console.log('PASS  new link requires a referrer')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(3500)   // let the toast clear so it can't swallow the next click
+}
+{
+  // create one for an outside source
+  await page.click('button:has-text("New referral link")')
+  await page.waitForSelector('text=Who is this link for?', { timeout: 8000 })
+  await page.locator('label:has-text("Who is this link for?") select').selectOption('outside')
+  await page.waitForSelector('text=Their name', { timeout: 8000 })
+  await page.locator('label:has-text("Their name") input').fill('E2E Test Source')
+  await page.click('button:has-text("Create link")')
+  await page.waitForSelector('text=no login needed', { timeout: 15000 })
+  console.log('PASS  referral link created')
+  await page.click('button:has-text("Done")')
+  await page.waitForSelector('td:has-text("E2E Test Source")', { timeout: 8000 })
+}
+{
+  // it can be disabled…
+  const row = page.locator('tr', { hasText: 'E2E Test Source' })
+  await row.locator('button:has-text("Disable")').click()
+  await page.waitForSelector('text=Link disabled', { timeout: 8000 })
+  console.log('PASS  link can be disabled')
+}
+{
+  // …and deleted (confirm dialog auto-accepted)
+  page.once('dialog', (d) => d.accept())
+  await page.locator('tr', { hasText: 'E2E Test Source' }).locator('button:has-text("Delete")').click()
+  await page.waitForSelector('text=Link deleted', { timeout: 8000 })
+  try {
+    await page.locator('td', { hasText: 'E2E Test Source' }).first().waitFor({ state: 'detached', timeout: 8000 })
+    console.log('PASS  link deleted')
+  } catch { failed++; console.log('FAIL  link still listed after delete') }
+}
+await expectText('Ramesh Kumar (TalentBridge)', 'source link listed')
 
 // 7. Public referral form: prefilled referrer, required fields, +91 phone
 // 7a. a link issued to an employee prefills (and locks) the referrer
 await page.goto(`${BASE}/#/f/demo-team-referrals`)
 await expectText('This link was issued to you', 'employee link prefills the referrer')
-{
-  const name = page.locator('input').first()
-  const val = await name.inputValue()
-  const disabled = await name.isDisabled()
-  if (val === 'Deepak Verma' && disabled) console.log('PASS  referrer name prefilled and locked')
-  else { failed++; console.log(`FAIL  referrer prefill (value=${val} disabled=${disabled})`) }
-}
+await expectText('Deepak Verma', 'referrer name filled from the link')
+await expectText('RM001', 'referrer EMP ID filled from the link')
 
 // 7b. an expired link is refused
 await page.goto(`${BASE}/#/f/demo-expired-link`)
 await expectText('expired', 'expired link is refused')
 
-// 7c. the open link: validation then a real submission
+// 7c. a consultant link: details still come from the link, then validation + a real submission
 await page.goto(`${BASE}/#/f/demo-source-ramesh`)
 await expectText('Candidate referral form', 'referral form renders')
 await expectText('Your details', 'referrer section shows')
-await expectText('Candidate 1', 'candidate rows show')
+await expectText('Ramesh Kumar (TalentBridge)', 'consultant link autofills too')
+await expectText('Your Contacts', 'contacts section renamed')
+await expectText('Contact 1', 'contact rows show')
+{
+  // nothing about the referrer is typed any more
+  const inputs = await page.locator('input:not([type=file])').count()
+  const rowInputs = 5 // name, phone, designation, area, current company
+  if (inputs === rowInputs) console.log('PASS  referrer details are read-only')
+  else { failed++; console.log(`FAIL  referrer details are read-only (found ${inputs} inputs)`) }
+}
 
-const cand = (i, label) => page.locator('div.rounded-lg', { hasText: `Candidate ${i}` }).locator(`label:has-text("${label}") input`).first()
+const cand = (i, label) => page.locator('div.rounded-lg', { hasText: `Contact ${i}` }).locator(`label:has-text("${label}") input`).first()
 
-await page.locator('input').first().fill('E2E Referrer')
 await cand(1, 'Name').fill('Balwinder Sandhu')
 await page.click('button:has-text("Submit")')
-await expectText('Candidate 1: Phone number is required', 'missing required field blocked')
+await expectText('Contact 1: Phone number is required', 'missing required field blocked')
 
 await cand(1, 'Designation').fill('Sales Officer')
 await cand(1, 'Area').fill('Ludhiana')
@@ -188,14 +231,14 @@ await page.click('button:has-text("Submit")')
 await expectText('10-digit mobile', 'bad phone blocked')
 
 await cand(1, 'Phone number').fill('9000011111')
-await page.click('button:has-text("Add another candidate")')
-await expectText('Candidate 2', 'second candidate row added')
+await page.click('button:has-text("Add another contact")')
+await expectText('Contact 2', 'second contact row added')
 await cand(2, 'Name').fill('Half Filled')
 await page.click('button:has-text("Submit")')
-await expectText('Candidate 2: Phone number is required', 'half-filled second row blocked')
+await expectText('Contact 2: Phone number is required', 'half-filled second row blocked')
 {
-  // drop row 2 so only the complete candidate is submitted
-  await page.locator('div.rounded-lg', { hasText: 'Candidate 2' }).locator('button').first().click()
+  // drop row 2 so only the complete contact is submitted
+  await page.locator('div.rounded-lg', { hasText: 'Contact 2' }).locator('button').first().click()
 }
 await page.click('button:has-text("Submit")')
 await expectText('Submitted — thank you', 'referral submission accepted')
@@ -204,7 +247,7 @@ await page.waitForTimeout(21000) // let queries go stale so remounts refetch
 await page.goto(`${BASE}/#/candidates`)
 await clickTabAndExpect('button:has-text("Submissions")', 'Gaurav Nanda', 'submissions queue renders (seeded)')
 await expectText('Balwinder Sandhu', 'new submission waits for review')
-await expectText('E2E Referrer', 'submission grouped under referrer')
+await expectText('Ramesh Kumar (TalentBridge)', 'submission grouped under the link referrer')
 await expectText('+919000011111', 'phone stored in +91 form')
 
 // 7d. back to the database (admin: full list)
