@@ -680,17 +680,19 @@ function ReferralLinks() {
 function NewLinkModal({ onClose }) {
   const qc = useQueryClient()
   const toast = useToast()
-  const [formId, setFormId] = useState('')
   const [sourceName, setSourceName] = useState('')
   const [personId, setPersonId] = useState('')
   const [created, setCreated] = useState(null)
   const [saving, setSaving] = useState(false)
 
-  const { data: forms = [] } = useQuery({
-    queryKey: ['form-templates-active'],
+  // referral links always use the candidate referral form
+  const { data: referralForm } = useQuery({
+    queryKey: ['referral-form-template'],
     queryFn: async () => {
-      const { data } = await supabase.from('form_templates').select('id, name, kind').eq('active', true).order('name')
-      return (data || []).filter((f) => f.kind !== 'general')
+      const { data } = await supabase
+        .from('form_templates').select('id, name')
+        .eq('kind', 'referral').eq('active', true).order('created_at').limit(1)
+      return data?.[0] ?? null
     },
   })
 
@@ -707,11 +709,8 @@ function NewLinkModal({ onClose }) {
 
   const person = people.find((p) => p.id === personId) || null
 
-  const referral = forms.filter((f) => f.kind === 'referral')
-  const effectiveFormId = formId || referral[0]?.id || forms[0]?.id || ''
-
   const create = async () => {
-    if (!effectiveFormId) return toast('No active referral form found — ask the admin to check Settings → Forms', 'error')
+    if (!referralForm) return toast('No active referral form found — ask the admin to check Settings → Forms', 'error')
     const label = sourceName.trim() || person?.full_name || ''
     if (!label) return toast('Name the source (e.g. "Sales team — Punjab")', 'error')
     setSaving(true)
@@ -719,7 +718,7 @@ function NewLinkModal({ onClose }) {
       const { data, error } = await supabase
         .from('form_links')
         .insert({
-          form_id: effectiveFormId,
+          form_id: referralForm.id,
           source_name: label,
           referrer_name: person?.full_name ?? null,
           referrer_emp_id: person?.emp_code ?? null,
@@ -765,11 +764,6 @@ function NewLinkModal({ onClose }) {
           <Field label="Source name" required={!person} hint="Tags every candidate they submit">
             <Input value={sourceName} onChange={(e) => setSourceName(e.target.value)}
               placeholder={person ? person.full_name : 'e.g. Sales team — Punjab / Consultant Ramesh'} autoFocus />
-          </Field>
-          <Field label="Form">
-            <Select value={effectiveFormId} onChange={(e) => setFormId(e.target.value)}>
-              {forms.map((f) => <option key={f.id} value={f.id}>{f.name}{f.kind === 'referral' ? ' (referral)' : ''}</option>)}
-            </Select>
           </Field>
           <p className="flex items-center gap-1.5 text-xs text-slate-400">
             <Clock className="h-3.5 w-3.5" /> The link stops working automatically 7 days from now.

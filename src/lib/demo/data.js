@@ -179,7 +179,7 @@ export function buildSeedStore() {
   ]
 
   const prospectives = [
-    { id: 'pr-01', full_name: 'Ankit Malhotra', designation: 'Sales Officer', area: 'Ludhiana', contact: '+919812344556', source: 'Internal Referral', status: 'interview_scheduled', candidate_id: 'c-01', created_by: 'u-priya', created_at: iso(3), updated_at: iso(1) },
+    { id: 'pr-01', full_name: 'Ankit Malhotra', designation: 'Sales Officer', area: 'Ludhiana', contact: '+919812344556', source: 'Internal Referral', resume_path: 'pr-01/seed_ankit_malhotra_cv.pdf', resume_name: 'Ankit_Malhotra_CV.pdf', status: 'interview_scheduled', candidate_id: 'c-01', created_by: 'u-priya', created_at: iso(3), updated_at: iso(1) },
     { id: 'pr-02', full_name: 'Harjinder Pal', designation: 'Senior Sales Executive', area: 'Mohali', contact: '+919876120034', source: 'Internal Referral', status: 'offer_letter_sent', candidate_id: 'c-03', created_by: 'u-priya', created_at: iso(2), updated_at: iso(1) },
     { id: 'pr-03', full_name: 'Sandeep Walia', designation: 'Sales Rep', area: 'Bathinda', contact: '+919855210394', source: 'LI / Indeed', status: 'contacted', candidate_id: null, created_by: 'u-priya', created_at: iso(8), updated_at: iso(5) },
     { id: 'pr-04', full_name: 'Jaspreet Brar', designation: 'Sales Rep', area: 'Moga', contact: '+919780644121', source: 'LI / Indeed', status: 'new', candidate_id: null, created_by: 'u-priya', created_at: iso(1), updated_at: iso(1) },

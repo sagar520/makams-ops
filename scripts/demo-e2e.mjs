@@ -72,6 +72,28 @@ await expectText('Sandeep Walia', 'prospectives sheet renders')
 }
 console.log('PASS  prospective status changed inline')
 {
+  // status dropdown is colour-coded
+  const cls = await page.locator('tr', { hasText: 'Jaspreet Brar' }).locator('select').getAttribute('class')
+  if (cls && /bg-(sky|indigo|violet|amber|emerald|red)-/.test(cls)) console.log('PASS  status dropdown colour-coded')
+  else { failed++; console.log(`FAIL  status dropdown colour-coded (class=${cls})`) }
+}
+{
+  // Last updated column replaced Added
+  const head = (await page.locator('thead').first().innerText()).toLowerCase()
+  if (head.includes('last updated') && !head.includes('added')) console.log('PASS  last-updated column')
+  else { failed++; console.log('FAIL  last-updated column') }
+}
+{
+  // resume: seeded row shows a clip, and the modal offers an upload
+  const clip = await page.locator('tr', { hasText: 'Ankit Malhotra' }).locator('button[title]').count()
+  if (clip > 0) console.log('PASS  resume shown on the sheet')
+  else { failed++; console.log('FAIL  resume not shown on the sheet') }
+  await page.click('button:has-text("Jaspreet Brar")')
+  await page.waitForSelector('text=Attach a resume', { timeout: 8000 })
+  console.log('PASS  resume upload offered in the modal')
+  await page.keyboard.press('Escape')
+}
+{
   // source column + filter
   const cell = page.locator('td', { hasText: 'LI / Indeed' }).first()
   try { await cell.waitFor({ timeout: 8000 }); console.log('PASS  prospective source column shown') }

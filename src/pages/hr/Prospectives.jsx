@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, ClipboardList, Trash2 } from 'lucide-react'
+import { Plus, ClipboardList, Trash2, Paperclip, Upload, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
   PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, Select, Input,
-  Field, Modal, EmptyState, FullPageSpinner, useToast,
+  Field, Modal, EmptyState, FullPageSpinner, useToast, cx,
 } from '../../components/ui'
-import { PROSPECTIVE_STATUS, PROSPECTIVE_SOURCES, prospectiveStatusMeta } from '../../lib/constants'
+import { PROSPECTIVE_STATUS, PROSPECTIVE_SOURCES, PROSPECTIVE_STATUS_CLS, prospectiveStatusMeta } from '../../lib/constants'
 import { fmtDate } from '../../lib/format'
 
 export default function Prospectives() {
@@ -50,6 +50,12 @@ export default function Prospectives() {
     }
     return list
   }, [rows, statusFilter, areaFilter, sourceFilter, q])
+
+  const openResume = async (row) => {
+    const { data, error } = await supabase.storage.from('prospective-resumes').createSignedUrl(row.resume_path, 300)
+    if (error) return toast(error.message, 'error')
+    window.open(data.signedUrl, '_blank', 'noopener')
+  }
 
   const setStatus = async (row, status) => {
     const { error } = await supabase.from('prospectives').update({ status }).eq('id', row.id)
@@ -97,13 +103,19 @@ export default function Prospectives() {
       ) : (
         <Table>
           <thead>
-            <tr><Th>Name</Th><Th>Designation</Th><Th>Area</Th><Th>Contact</Th><Th>Source</Th><Th>Status</Th><Th>Added</Th></tr>
+            <tr><Th>Name</Th><Th>Designation</Th><Th>Area</Th><Th>Contact</Th><Th>Source</Th><Th>Status</Th><Th>Last updated</Th></tr>
           </thead>
           <tbody>
             {filtered.map((r) => (
               <Tr key={r.id}>
                 <Td className="font-medium text-slate-900">
                   <button className="hover:text-indigo-600" onClick={() => setEditing(r)}>{r.full_name}</button>
+                  {r.resume_path && (
+                    <button className="ml-1.5 align-middle text-slate-400 hover:text-indigo-600" title={r.resume_name || 'Resume'}
+                      onClick={() => openResume(r)}>
+                      <Paperclip className="inline h-3.5 w-3.5" />
+                    </button>
+                  )}
                   {r.candidate_id && <Badge tone="slate" className="ml-2">from DB</Badge>}
                 </Td>
                 <Td>{r.designation || '—'}</Td>
@@ -111,11 +123,15 @@ export default function Prospectives() {
                 <Td className="text-slate-500">{r.contact || '—'}</Td>
                 <Td className="text-slate-600">{r.source || 'Other'}</Td>
                 <Td>
-                  <Select className="w-44 py-1 text-xs" value={r.status} onChange={(e) => setStatus(r, e.target.value)}>
+                  <Select
+                    className={cx('w-44 py-1 text-xs font-medium', PROSPECTIVE_STATUS_CLS[r.status])}
+                    value={r.status}
+                    onChange={(e) => setStatus(r, e.target.value)}
+                  >
                     {PROSPECTIVE_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </Select>
                 </Td>
-                <Td className="text-xs text-slate-400">{fmtDate(r.created_at)}</Td>
+                <Td className="text-xs text-slate-400">{fmtDate(r.updated_at || r.created_at)}</Td>
               </Tr>
             ))}
           </tbody>
@@ -129,12 +145,31 @@ export default function Prospectives() {
 
 const EMPTY = { full_name: '', designation: '', area: '', contact: '', source: 'Other', status: 'new' }
 
+const RESUME_OK = /\.(pdf|docx?|jpe?g|png)$/i
+
 function ProspectiveModal({ row, onClose }) {
   const qc = useQueryClient()
   const toast = useToast()
   const [form, setForm] = useState(row ? { ...EMPTY, ...Object.fromEntries(Object.keys(EMPTY).map((k) => [k, row[k] ?? ''])) } : EMPTY)
   const [saving, setSaving] = useState(false)
+  const [resume, setResume] = useState(null)                       // newly picked file
+  const [existing, setExisting] = useState(row?.resume_path ? { path: row.resume_path, name: row.resume_name } : null)
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  const pickResume = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (file.size > 15 * 1024 * 1024) return toast('File is too large (max 15 MB)', 'error')
+    if (!RESUME_OK.test(file.name)) return toast('Upload a PDF, Word file or image', 'error')
+    setResume(file)
+  }
+
+  const openExisting = async () => {
+    const { data, error } = await supabase.storage.from('prospective-resumes').createSignedUrl(existing.path, 300)
+    if (error) return toast(error.message, 'error')
+    window.open(data.signedUrl, '_blank', 'noopener')
+  }
 
   const save = async () => {
     if (!form.full_name.trim()) return toast('Name is required', 'error')
@@ -142,6 +177,22 @@ function ProspectiveModal({ row, onClose }) {
     try {
       const payload = { ...form }
       for (const k of Object.keys(payload)) if (payload[k] === '') payload[k] = null
+
+      // resume: upload the new one, or clear what was there
+      if (resume) {
+        const safe = resume.name.replace(/[^\w.\-]+/g, '_').slice(-80)
+        const path = `${row?.id || 'new'}/${Date.now()}_${safe}`
+        const { error: upErr } = await supabase.storage.from('prospective-resumes').upload(path, resume)
+        if (upErr) throw upErr
+        payload.resume_path = path
+        payload.resume_name = resume.name
+        if (existing?.path) await supabase.storage.from('prospective-resumes').remove([existing.path])
+      } else if (row?.resume_path && !existing) {
+        await supabase.storage.from('prospective-resumes').remove([row.resume_path])
+        payload.resume_path = null
+        payload.resume_name = null
+      }
+
       const qy = row
         ? supabase.from('prospectives').update(payload).eq('id', row.id)
         : supabase.from('prospectives').insert(payload)
@@ -161,6 +212,7 @@ function ProspectiveModal({ row, onClose }) {
     if (!window.confirm(`Remove ${row.full_name} from the sheet?`)) return
     const { error } = await supabase.from('prospectives').delete().eq('id', row.id)
     if (error) return toast(error.message, 'error')
+    if (row.resume_path) await supabase.storage.from('prospective-resumes').remove([row.resume_path])
     qc.invalidateQueries({ queryKey: ['prospectives'] })
     onClose()
   }
@@ -185,9 +237,34 @@ function ProspectiveModal({ row, onClose }) {
           </Select>
         </Field>
         <Field label="Status">
-          <Select value={form.status} onChange={set('status')}>
+          <Select className={cx('font-medium', PROSPECTIVE_STATUS_CLS[form.status])} value={form.status} onChange={set('status')}>
             {PROSPECTIVE_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </Select>
+        </Field>
+        <Field label="Resume" hint="Optional — PDF, Word or image, max 15 MB" className="sm:col-span-2">
+          {resume ? (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
+              <Paperclip className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">{resume.name}</span>
+              <button className="text-emerald-600 hover:text-red-600" onClick={() => setResume(null)}><X className="h-4 w-4" /></button>
+            </div>
+          ) : existing ? (
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+              <Paperclip className="h-4 w-4 shrink-0 text-slate-400" />
+              <button className="min-w-0 flex-1 truncate text-left hover:text-indigo-600" onClick={openExisting}>
+                {existing.name || 'Resume on file'}
+              </button>
+              <button className="text-slate-400 hover:text-red-600" title="Remove on save" onClick={() => setExisting(null)}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-sm text-slate-500 transition-colors hover:border-indigo-400 hover:bg-indigo-50/30">
+              <Upload className="h-4 w-4 shrink-0" />
+              <span>Attach a resume</span>
+              <input type="file" className="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={pickResume} />
+            </label>
+          )}
         </Field>
       </div>
     </Modal>

@@ -71,6 +71,17 @@ export const PROSPECTIVE_STATUS = [
 
 export const prospectiveStatusMeta = (v) => PROSPECTIVE_STATUS.find((s) => s.value === v) || { label: v, tone: 'gray' }
 
+// colours for the inline status dropdown on the Prospectives sheet
+export const PROSPECTIVE_STATUS_CLS = {
+  new: 'border-sky-200 bg-sky-50 text-sky-800',
+  contacted: 'border-indigo-200 bg-indigo-50 text-indigo-800',
+  interested: 'border-violet-200 bg-violet-50 text-violet-800',
+  interview_scheduled: 'border-amber-200 bg-amber-50 text-amber-800',
+  offer_letter_sent: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  joined: 'border-emerald-300 bg-emerald-100 text-emerald-900 font-semibold',
+  rejected: 'border-red-200 bg-red-50 text-red-800',
+}
+
 export const PROSPECTIVE_SOURCES = ['LI / Indeed', 'Internal Referral', 'Other']
 
 export const CANDIDATE_STATUS = [

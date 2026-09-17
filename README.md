@@ -53,7 +53,7 @@ Never set `VITE_DEMO` on the real deployment.
    first sign-in.
 3. Run the migrations, either way:
    - **Dashboard**: SQL Editor → paste and run `0001_core.sql`, `0002_hr.sql`,
-     `0003_purchase.sql`, … through `0010_referral_rules.sql` **in order** (or paste the
+     `0003_purchase.sql`, … through `0011_prospective_resume.sql` **in order** (or paste the
      combined `supabase/makams-ops-schema.sql` once).
    - **CLI**: `supabase link --project-ref <ref>` then `supabase db push`.
 
@@ -192,8 +192,11 @@ set — you can go live without them and add them later.
   the UI by request; the backend for them remains in place if wanted later. HR can
   still upload documents directly on a person's Documents tab.
 - **Prospectives**: the flat hiring sheet HR works daily — Name, Designation, Area,
-  Contact, Status (New → Contacted → Interested → Interview Scheduled → Offer Letter
-  Sent → Joined, plus Rejected), with status/area filters and inline status changes.
+  Contact, Source (LI / Indeed, Internal Referral, Other), Status and Last updated.
+  Status is colour-coded and changed inline (New → Contacted → Interested → Interview
+  Scheduled → Offer Letter Sent → Joined, plus Rejected), with status/area/source
+  filters. Each row can carry an optional **resume** (private
+  `prospective-resumes` bucket, HR-only, opened through a short-lived signed URL).
 - **Candidates DB & referral links**: the raw referral pool. HR creates one link per
   source (Candidates DB → Referral links) and can **issue a link to a specific
   employee** — their name and EMP ID are then filled in and locked on the form, so the
