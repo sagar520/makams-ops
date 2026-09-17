@@ -5,7 +5,7 @@
 
 -- First admin (claims this row on first Google sign-in with this email)
 insert into public.app_users (email, full_name, roles)
-values ('aakash@makams.com', 'Aakash Agarwal', array['admin','hr','purchase','approver'])
+values ('sagar@makams.com', 'Sagar', array['admin','hr','purchase','approver'])
 on conflict do nothing;
 
 -- Company profile used on PO PDFs and the employee portal.
