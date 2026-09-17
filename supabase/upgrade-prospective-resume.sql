@@ -36,3 +36,6 @@ create policy "prospective resumes hr delete" on storage.objects
 select 'Resume field installed on '
        || count(*) || ' prospectives (bucket: prospective-resumes)' as result
   from public.prospectives;
+
+-- make the API layer re-read the schema straight away
+notify pgrst, 'reload schema';

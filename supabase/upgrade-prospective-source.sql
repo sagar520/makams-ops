@@ -33,3 +33,6 @@ select 'Prospective source installed: '
        || count(*) filter (where source = 'Other')             || ' other'
   as result
   from public.prospectives;
+
+-- make the API layer re-read the schema straight away
+notify pgrst, 'reload schema';

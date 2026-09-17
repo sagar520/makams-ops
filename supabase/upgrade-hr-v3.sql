@@ -142,3 +142,6 @@ insert into public.prospectives (full_name, designation, area, contact, status) 
   ('Sahil Chopra', 'Sales Rep', 'Ludhiana', '99145 87230', 'rejected');
 
 select 'Upgrade done: ' || (select count(*) from public.prospectives) || ' prospectives, ' || (select count(*) from public.candidates) || ' candidates, referral form ready' as result;
+
+-- make the API layer re-read the schema straight away
+notify pgrst, 'reload schema';

@@ -95,3 +95,6 @@ where not exists (select 1 from public.referral_submissions);
 
 select 'Review queue ready: ' || count(*) || ' pending submissions waiting' as result
   from public.referral_submissions where status = 'pending';
+
+-- make the API layer re-read the schema straight away
+notify pgrst, 'reload schema';

@@ -262,3 +262,6 @@ select 'Referral rules installed: '
        || (select count(*) from public.candidates where phone like '+91%') || ' phones normalised, '
        || 'HR now searches the DB by area'
   as result;
+
+-- make the API layer re-read the schema straight away
+notify pgrst, 'reload schema';
