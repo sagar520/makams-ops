@@ -176,13 +176,13 @@ export function buildSeedStore() {
   ]
 
   const prospectives = [
-    { id: 'pr-01', full_name: 'Ankit Malhotra', designation: 'Sales Officer', area: 'Ludhiana', contact: '98123 44556', status: 'interview_scheduled', candidate_id: 'c-01', created_by: 'u-priya', created_at: iso(3), updated_at: iso(1) },
-    { id: 'pr-02', full_name: 'Harjinder Pal', designation: 'Senior Sales Executive', area: 'Mohali', contact: '98761 20034', status: 'offer_letter_sent', candidate_id: 'c-03', created_by: 'u-priya', created_at: iso(2), updated_at: iso(1) },
-    { id: 'pr-03', full_name: 'Sandeep Walia', designation: 'Sales Rep', area: 'Bathinda', contact: '98552 10394', status: 'contacted', candidate_id: null, created_by: 'u-priya', created_at: iso(8), updated_at: iso(5) },
-    { id: 'pr-04', full_name: 'Jaspreet Brar', designation: 'Sales Rep', area: 'Moga', contact: '97806 44121', status: 'new', candidate_id: null, created_by: 'u-priya', created_at: iso(1), updated_at: iso(1) },
-    { id: 'pr-05', full_name: 'Ramanpreet Kaur', designation: 'Territory Manager', area: 'Amritsar', contact: 'raman.k@gmail.com', status: 'interested', candidate_id: null, created_by: 'u-priya', created_at: iso(12), updated_at: iso(6) },
-    { id: 'pr-06', full_name: 'Vikram Rathi', designation: 'Sales Rep', area: 'Bathinda', contact: '98995 66778', status: 'joined', candidate_id: null, created_by: 'u-priya', created_at: iso(30), updated_at: iso(11) },
-    { id: 'pr-07', full_name: 'Sahil Chopra', designation: 'Sales Rep', area: 'Ludhiana', contact: '99145 87230', status: 'rejected', candidate_id: null, created_by: 'u-priya', created_at: iso(22), updated_at: iso(15) },
+    { id: 'pr-01', full_name: 'Ankit Malhotra', designation: 'Sales Officer', area: 'Ludhiana', contact: '98123 44556', source: 'Internal Referral', status: 'interview_scheduled', candidate_id: 'c-01', created_by: 'u-priya', created_at: iso(3), updated_at: iso(1) },
+    { id: 'pr-02', full_name: 'Harjinder Pal', designation: 'Senior Sales Executive', area: 'Mohali', contact: '98761 20034', source: 'Internal Referral', status: 'offer_letter_sent', candidate_id: 'c-03', created_by: 'u-priya', created_at: iso(2), updated_at: iso(1) },
+    { id: 'pr-03', full_name: 'Sandeep Walia', designation: 'Sales Rep', area: 'Bathinda', contact: '98552 10394', source: 'LI / Indeed', status: 'contacted', candidate_id: null, created_by: 'u-priya', created_at: iso(8), updated_at: iso(5) },
+    { id: 'pr-04', full_name: 'Jaspreet Brar', designation: 'Sales Rep', area: 'Moga', contact: '97806 44121', source: 'LI / Indeed', status: 'new', candidate_id: null, created_by: 'u-priya', created_at: iso(1), updated_at: iso(1) },
+    { id: 'pr-05', full_name: 'Ramanpreet Kaur', designation: 'Territory Manager', area: 'Amritsar', contact: 'raman.k@gmail.com', source: 'Other', status: 'interested', candidate_id: null, created_by: 'u-priya', created_at: iso(12), updated_at: iso(6) },
+    { id: 'pr-06', full_name: 'Vikram Rathi', designation: 'Sales Rep', area: 'Bathinda', contact: '98995 66778', source: 'LI / Indeed', status: 'joined', candidate_id: null, created_by: 'u-priya', created_at: iso(30), updated_at: iso(11) },
+    { id: 'pr-07', full_name: 'Sahil Chopra', designation: 'Sales Rep', area: 'Ludhiana', contact: '99145 87230', source: 'Other', status: 'rejected', candidate_id: null, created_by: 'u-priya', created_at: iso(22), updated_at: iso(15) },
   ]
 
   const form_responses_extra = { id: 'fr-03', form_id: 'ft-referral', link_id: 'fl-01', answers: { referrer: { name: 'Ramesh Kumar (TalentBridge)', emp_id: null, phone: '98150 00110' }, candidates: [{ name: 'Gaurav Nanda', designation: 'Sales Officer', area: 'Patiala', current_company: 'Dabur (distributor)', phone: '98700 45612' }, { name: 'Simarjit Dhillon', designation: 'Sales Rep', area: 'Moga', current_company: 'Local FMCG stockist', phone: '97910 33445' }] }, files: [], candidate_id: null, created_at: iso(1) }

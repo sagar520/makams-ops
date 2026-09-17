@@ -288,7 +288,7 @@ function Database() {
     try {
       const { data: pros, error } = await supabase
         .from('prospectives')
-        .insert({ full_name: c.full_name, designation: c.designation, area: c.area, contact: c.phone, status: 'new', candidate_id: c.id })
+        .insert({ full_name: c.full_name, designation: c.designation, area: c.area, contact: c.phone, status: 'new', candidate_id: c.id, source: c.referrer_emp_id ? 'Internal Referral' : 'Other' })
         .select('id')
         .single()
       if (error) throw error

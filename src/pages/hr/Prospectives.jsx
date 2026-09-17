@@ -6,7 +6,7 @@ import {
   PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, Select, Input,
   Field, Modal, EmptyState, FullPageSpinner, useToast,
 } from '../../components/ui'
-import { PROSPECTIVE_STATUS, prospectiveStatusMeta } from '../../lib/constants'
+import { PROSPECTIVE_STATUS, PROSPECTIVE_SOURCES, prospectiveStatusMeta } from '../../lib/constants'
 import { fmtDate } from '../../lib/format'
 
 export default function Prospectives() {
@@ -15,6 +15,7 @@ export default function Prospectives() {
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('open')
   const [areaFilter, setAreaFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
   const [editing, setEditing] = useState(null) // 'new' | row
 
   const { data: rows, isLoading } = useQuery({
@@ -42,12 +43,13 @@ export default function Prospectives() {
     if (statusFilter === 'open') list = list.filter((r) => !['rejected', 'joined'].includes(r.status))
     else if (statusFilter !== 'all') list = list.filter((r) => r.status === statusFilter)
     if (areaFilter) list = list.filter((r) => r.area === areaFilter)
+    if (sourceFilter) list = list.filter((r) => (r.source || 'Other') === sourceFilter)
     if (q.trim()) {
       const n = q.trim().toLowerCase()
       list = list.filter((r) => [r.full_name, r.designation, r.area, r.contact].filter(Boolean).some((v) => v.toLowerCase().includes(n)))
     }
     return list
-  }, [rows, statusFilter, areaFilter, q])
+  }, [rows, statusFilter, areaFilter, sourceFilter, q])
 
   const setStatus = async (row, status) => {
     const { error } = await supabase.from('prospectives').update({ status }).eq('id', row.id)
@@ -78,6 +80,10 @@ export default function Prospectives() {
           <option value="">All areas</option>
           {areas.map((a) => <option key={a}>{a}</option>)}
         </Select>
+        <Select className="w-44" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
+          <option value="">All sources</option>
+          {PROSPECTIVE_SOURCES.map((s) => <option key={s}>{s}</option>)}
+        </Select>
         <SearchInput value={q} onChange={setQ} placeholder="Search name, designation, area…" className="w-72" />
       </div>
 
@@ -91,7 +97,7 @@ export default function Prospectives() {
       ) : (
         <Table>
           <thead>
-            <tr><Th>Name</Th><Th>Designation</Th><Th>Area</Th><Th>Contact</Th><Th>Status</Th><Th>Added</Th></tr>
+            <tr><Th>Name</Th><Th>Designation</Th><Th>Area</Th><Th>Contact</Th><Th>Source</Th><Th>Status</Th><Th>Added</Th></tr>
           </thead>
           <tbody>
             {filtered.map((r) => (
@@ -103,6 +109,7 @@ export default function Prospectives() {
                 <Td>{r.designation || '—'}</Td>
                 <Td>{r.area || '—'}</Td>
                 <Td className="text-slate-500">{r.contact || '—'}</Td>
+                <Td className="text-slate-600">{r.source || 'Other'}</Td>
                 <Td>
                   <Select className="w-44 py-1 text-xs" value={r.status} onChange={(e) => setStatus(r, e.target.value)}>
                     {PROSPECTIVE_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -120,7 +127,7 @@ export default function Prospectives() {
   )
 }
 
-const EMPTY = { full_name: '', designation: '', area: '', contact: '', status: 'new' }
+const EMPTY = { full_name: '', designation: '', area: '', contact: '', source: 'Other', status: 'new' }
 
 function ProspectiveModal({ row, onClose }) {
   const qc = useQueryClient()
@@ -172,6 +179,11 @@ function ProspectiveModal({ row, onClose }) {
         <Field label="Designation"><Input value={form.designation} onChange={set('designation')} placeholder="e.g. Area Sales Manager" /></Field>
         <Field label="Area"><Input value={form.area} onChange={set('area')} placeholder="e.g. Ludhiana / Jalandhar" /></Field>
         <Field label="Contact"><Input value={form.contact} onChange={set('contact')} placeholder="Phone / email" /></Field>
+        <Field label="Source">
+          <Select value={form.source || 'Other'} onChange={set('source')}>
+            {PROSPECTIVE_SOURCES.map((s) => <option key={s}>{s}</option>)}
+          </Select>
+        </Field>
         <Field label="Status">
           <Select value={form.status} onChange={set('status')}>
             {PROSPECTIVE_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}

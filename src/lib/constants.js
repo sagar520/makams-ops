@@ -71,6 +71,8 @@ export const PROSPECTIVE_STATUS = [
 
 export const prospectiveStatusMeta = (v) => PROSPECTIVE_STATUS.find((s) => s.value === v) || { label: v, tone: 'gray' }
 
+export const PROSPECTIVE_SOURCES = ['LI / Indeed', 'Internal Referral', 'Other']
+
 export const CANDIDATE_STATUS = [
   { value: 'new', label: 'New', tone: 'blue' },
   { value: 'screening', label: 'Screening', tone: 'indigo' },

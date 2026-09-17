@@ -71,6 +71,23 @@ await expectText('Sandeep Walia', 'prospectives sheet renders')
   await page.waitForTimeout(600)
 }
 console.log('PASS  prospective status changed inline')
+{
+  // source column + filter
+  const cell = page.locator('td', { hasText: 'LI / Indeed' }).first()
+  try { await cell.waitFor({ timeout: 8000 }); console.log('PASS  prospective source column shown') }
+  catch { failed++; console.log('FAIL  prospective source column shown') }
+}
+{
+  // filter to Internal Referral: Harjinder Pal (pr-02) stays, Sandeep Walia (LI / Indeed) disappears
+  const selects = page.locator('div.mb-4 select')
+  await selects.nth(2).selectOption('Internal Referral')
+  await page.waitForTimeout(400)
+  const gone = await page.locator('td', { hasText: 'Sandeep Walia' }).count()
+  const kept = await page.locator('td', { hasText: 'Harjinder Pal' }).count()
+  if (gone === 0 && kept > 0) console.log('PASS  source filter works')
+  else { failed++; console.log('FAIL  source filter works') }
+  await selects.nth(2).selectOption('')
+}
 
 // 5. Candidates DB (referral database)
 await page.goto(`${BASE}/#/candidates`)

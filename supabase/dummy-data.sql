@@ -389,10 +389,11 @@ update public.form_links
  where exists (select 1 from public.form_templates where kind = 'referral');
 
 -- prospectives sheet: pick up a few referrals + some standalone rows
-insert into public.prospectives (full_name, designation, area, contact, status, candidate_id, created_at)
+insert into public.prospectives (full_name, designation, area, contact, status, candidate_id, source, created_at)
 select full_name, designation, area, phone,
        (array['new','contacted','interested','interview_scheduled','offer_letter_sent'])[1 + (abs(hashtext(id::text)) % 5)],
-       id, created_at + interval '2 days'
+       id, case when referrer_emp_id is not null then 'Internal Referral' else 'Other' end,
+       created_at + interval '2 days'
   from public.candidates
  order by created_at
  limit 5;
@@ -402,10 +403,10 @@ update public.candidates c
   from public.prospectives p
  where p.candidate_id = c.id;
 
-insert into public.prospectives (full_name, designation, area, contact, status) values
-  ('Sandeep Walia', 'Sales Rep', 'Bathinda', '98552 10394', 'contacted'),
-  ('Jaspreet Brar', 'Sales Rep', 'Moga', '97806 44121', 'new'),
-  ('Sahil Chopra', 'Sales Rep', 'Ludhiana', '99145 87230', 'rejected');
+insert into public.prospectives (full_name, designation, area, contact, source, status) values
+  ('Sandeep Walia', 'Sales Rep', 'Bathinda', '98552 10394', 'LI / Indeed', 'contacted'),
+  ('Jaspreet Brar', 'Sales Rep', 'Moga', '97806 44121', 'LI / Indeed', 'new'),
+  ('Sahil Chopra', 'Sales Rep', 'Ludhiana', '99145 87230', 'Other', 'rejected');
 
 insert into public.referral_submissions
   (source, referred_by_name, referrer_emp_id, referrer_phone, full_name, designation, area, current_company, phone)
