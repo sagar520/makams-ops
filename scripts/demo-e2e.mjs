@@ -89,12 +89,24 @@ console.log('PASS  prospective status changed inline')
   await selects.nth(2).selectOption('')
 }
 
-// 5. Candidates DB (referral database) — gated behind an area search
+// 5. Candidates DB (referral database) — admin opens on the full list
 await page.goto(`${BASE}/#/candidates`)
-await expectText('Search an area to open the database', 'DB gated until an area is searched')
-await page.locator('input[list="candidate-areas"]').fill('Ludhiana')
-await page.click('button:has-text("Search")')
-await expectText('Ankit Malhotra', 'candidates DB renders for that area')
+await expectText('Admin view — the whole database', 'admin sees the full DB by default')
+await expectText('Ankit Malhotra', 'candidates DB renders')
+// and can still narrow to one area — the view HR is locked to
+{
+  await page.click('button:has-text("Search by area")')
+  await page.waitForSelector('text=Search an area to open the database', { timeout: 8000 })
+  const leaked = await page.locator('td', { hasText: 'Ankit Malhotra' }).count()
+  if (leaked === 0) console.log('PASS  area view lists nothing until searched')
+  else { failed++; console.log('FAIL  rows visible in the area view without a search') }
+  await page.locator('input[list="candidate-areas"]').fill('Ludhiana')
+  await page.click('button:has-text("Search")')
+  await page.waitForSelector('text=Ankit Malhotra', { timeout: 8000 })
+  const other = await page.locator('td', { hasText: 'Harjinder Pal' }).count()   // Mohali
+  if (other === 0) console.log('PASS  area search returns only that area')
+  else { failed++; console.log('FAIL  area search leaked another area') }
+}
 {
   const cell = page.locator('td', { hasText: 'Ramesh Kumar' }).first()
   try { await cell.waitFor({ timeout: 8000 }); console.log('PASS  referred-by shown') }
@@ -173,22 +185,8 @@ await expectText('Balwinder Sandhu', 'new submission waits for review')
 await expectText('E2E Referrer', 'submission grouped under referrer')
 await expectText('+919000011111', 'phone stored in +91 form')
 
-// 7d. the database is gated behind an area search
-await clickTabAndExpect('button:has-text("Database")', 'Search an area to open the database', 'DB not listed by default')
-{
-  const leaked = await page.locator('td', { hasText: 'Ankit Malhotra' }).count()
-  if (leaked === 0) console.log('PASS  no candidate rows before searching')
-  else { failed++; console.log('FAIL  candidate rows visible without a search') }
-}
-{
-  await page.locator('input[list="candidate-areas"]').fill('Ludhiana')
-  await page.click('button:has-text("Search")')
-  await page.waitForSelector('text=Ankit Malhotra', { timeout: 8000 })
-  console.log('PASS  area search pulls that area')
-  const other = await page.locator('td', { hasText: 'Harjinder Pal' }).count()  // Mohali
-  if (other === 0) console.log('PASS  other areas stay hidden')
-  else { failed++; console.log('FAIL  search returned another area') }
-}
+// 7d. back to the database (admin: full list)
+await clickTabAndExpect('button:has-text("Database")', 'Ankit Malhotra', 'database tab renders')
 
 // 7e. HR comment edits inline
 {
@@ -203,9 +201,6 @@ await clickTabAndExpect('button:has-text("Database")', 'Search an area to open t
 
 // 7f. the pending entry is not in the DB until approved
 {
-  await page.locator('input[list="candidate-areas"]').fill('Ludhiana')
-  await page.click('button:has-text("Search")')
-  await page.waitForTimeout(600)
   const inDb = await page.locator('td', { hasText: 'Balwinder Sandhu' }).count()
   if (inDb === 0) console.log('PASS  pending entry not in DB before approval')
   else { failed++; console.log('FAIL  pending entry leaked into DB') }
@@ -218,20 +213,7 @@ await clickTabAndExpect('button:has-text("Submissions")', 'Balwinder Sandhu', 's
   await page.waitForSelector('text=added to the Candidates DB', { timeout: 8000 })
 }
 console.log('PASS  approve moves entry to DB')
-await clickTabAndExpect('button:has-text("Database")', 'Search an area', 'back on database tab')
-{
-  await page.locator('input[list="candidate-areas"]').fill('Ludhiana')
-  await page.click('button:has-text("Search")')
-  await page.waitForSelector('text=Balwinder Sandhu', { timeout: 8000 })
-  console.log('PASS  approved candidate now in DB')
-}
-// admin override opens everything
-{
-  await page.click('button:has-text("open the full database")')
-  await page.waitForSelector('text=Full database open', { timeout: 8000 })
-  await page.waitForSelector('text=Harjinder Pal', { timeout: 8000 })
-  console.log('PASS  admin can open the full database')
-}
+await clickTabAndExpect('button:has-text("Database")', 'Balwinder Sandhu', 'approved candidate now in DB')
 
 // 8. Admin: forms + checklists in settings
 await page.goto(`${BASE}/#/settings`)

@@ -269,7 +269,7 @@ function Database() {
 
   const [areaInput, setAreaInput] = useState('')
   const [area, setArea] = useState('')          // the area actually searched
-  const [showAll, setShowAll] = useState(false) // admin-only override
+  const [showAll, setShowAll] = useState(true)  // admins open on the full list; HR is always gated
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState(null)
   const [pickingId, setPickingId] = useState(null)
@@ -372,11 +372,10 @@ function Database() {
           </div>
           {isAdmin && (
             <p className="mt-3 text-xs text-slate-400">
-              You're an admin —{' '}
+              You're an admin, so you can also{' '}
               <button className="font-medium text-indigo-600 hover:underline" onClick={() => { setShowAll(true); setArea('') }}>
                 open the full database
-              </button>{' '}
-              if you need the whole list. HR accounts can only pull one area at a time.
+              </button>. HR accounts only ever see one area at a time.
             </p>
           )}
           {areas.length > 0 && (
@@ -400,9 +399,9 @@ function Database() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-slate-600">
               <ShieldCheck className="mr-1.5 inline h-4 w-4 text-indigo-500" />
-              Full database open — admin view.
+              Admin view — the whole database. HR accounts search it one area at a time.
             </p>
-            <Button variant="secondary" size="xs" icon={Search} onClick={() => setShowAll(false)}>Back to area search</Button>
+            <Button variant="secondary" size="xs" icon={Search} onClick={() => setShowAll(false)}>Search by area</Button>
           </div>
         </Card>
       )}

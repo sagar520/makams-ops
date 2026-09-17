@@ -206,9 +206,9 @@ set — you can go live without them and add them later.
   DB (or rejects it) — nothing enters the Candidates DB unreviewed. HR comments are
   edited inline in the table, and good candidates go to Prospectives with one click.
   Nothing here auto-creates employees.
-- **Candidate DB access**: the database cannot be browsed or exported in bulk. HR
-  searches an **area** and gets only the rows for that area; admins can deliberately
-  open the full list. This is enforced by RLS — the `candidates` table has no SELECT
+- **Candidate DB access**: HR cannot browse or export the pool. They search an **area**
+  and get only the rows for that area. Admins always open on the full database (and can
+  narrow to one area if they want). This is enforced by RLS — the `candidates` table has no SELECT
   policy for HR at all, reads go through `search_candidates(area)`, and writes go
   through `save_candidate` / `pick_candidate` / `delete_candidate`. An HR user with
   the anon key and a REST client sees exactly what the UI shows them: nothing, until
