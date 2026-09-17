@@ -407,6 +407,12 @@ insert into public.prospectives (full_name, designation, area, contact, status) 
   ('Jaspreet Brar', 'Sales Rep', 'Moga', '97806 44121', 'new'),
   ('Sahil Chopra', 'Sales Rep', 'Ludhiana', '99145 87230', 'rejected');
 
+insert into public.referral_submissions
+  (source, referred_by_name, referrer_emp_id, referrer_phone, full_name, designation, area, current_company, phone)
+values
+  ('Consultant Ramesh — TalentBridge', 'Ramesh Kumar (TalentBridge)', null, '98150 00110', 'Gaurav Nanda', 'Sales Officer', 'Patiala', 'Dabur (distributor)', '98700 45612'),
+  ('Consultant Ramesh — TalentBridge', 'Ramesh Kumar (TalentBridge)', null, '98150 00110', 'Simarjit Dhillon', 'Sales Rep', 'Moga', 'Local FMCG stockist', '97910 33445');
+
 select 'Dummy data loaded: '
   || (select count(*) from public.people) || ' people, '
   || (select count(*) from public.candidates) || ' candidates, '

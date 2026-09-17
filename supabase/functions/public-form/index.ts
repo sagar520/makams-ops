@@ -57,29 +57,33 @@ Deno.serve(async (req) => {
     if (!rows.length) return json({ error: 'Add at least one candidate with a name' }, 400)
     if (rows.length > 50) return json({ error: 'Maximum 50 candidates per submission' }, 400)
 
+    const refEmpId = String(referrer.emp_id || '').trim() || null
+    const refPhone = String(referrer.phone || '').trim() || null
+
     const { data: response, error: respErr } = await svc
       .from('form_responses')
       .insert({
         form_id: tpl.id,
         link_id: link.id,
-        answers: { referrer: { name: refName, emp_id: String(referrer.emp_id || '').trim() || null, phone: String(referrer.phone || '').trim() || null }, candidates: rows },
+        answers: { referrer: { name: refName, emp_id: refEmpId, phone: refPhone }, candidates: rows },
       })
       .select('id')
       .single()
     if (respErr) return json({ error: respErr.message }, 500)
 
-    const { error: candErr } = await svc.from('candidates').insert(
+    // land in the review queue, not the Candidates DB — HR edits & approves each entry
+    const { error: subErr } = await svc.from('referral_submissions').insert(
       rows.map((c) => ({
         ...c,
         referred_by_name: refName,
-        referrer_emp_id: String(referrer.emp_id || '').trim() || null,
+        referrer_emp_id: refEmpId,
+        referrer_phone: refPhone,
         source: link.source_name,
         link_id: link.id,
         response_id: response.id,
-        created_by: link.created_by,
       }))
     )
-    if (candErr) return json({ error: candErr.message }, 500)
+    if (subErr) return json({ error: subErr.message }, 500)
 
     await svc.from('form_links').update({ submission_count: (link.submission_count || 0) + 1 }).eq('id', link.id)
     return json({ ok: true, added: rows.length })
@@ -138,30 +142,18 @@ Deno.serve(async (req) => {
     const resume = resumeField ? files.find((x) => x.key === resumeField.key) : null
 
     if (mapped.full_name) {
-      const { data: cand } = await svc
-        .from('candidates')
-        .insert({
-          full_name: mapped.full_name,
-          designation: mapped.title ?? null,
-          current_company: mapped.organization ?? null,
-          email: mapped.email ?? null,
-          phone: mapped.phone ?? null,
-          area: mapped.location ?? null,
-          hr_comment: mapped.notes ?? null,
-          referred_by_name: link.source_name,
-          resume_path: resume?.path ?? null,
-          resume_name: resume?.name ?? null,
-          source: link.source_name,
-          link_id: link.id,
-          response_id: response.id,
-          extra: clean,
-          created_by: link.created_by,
-        })
-        .select('id')
-        .single()
-      if (cand) {
-        await svc.from('form_responses').update({ candidate_id: cand.id }).eq('id', response.id)
-      }
+      // intake forms also go through the review queue
+      await svc.from('referral_submissions').insert({
+        full_name: mapped.full_name,
+        designation: mapped.title ?? null,
+        current_company: mapped.organization ?? null,
+        phone: mapped.phone ?? null,
+        area: mapped.location ?? null,
+        referred_by_name: link.source_name,
+        source: link.source_name,
+        link_id: link.id,
+        response_id: response.id,
+      })
     }
   }
 

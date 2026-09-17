@@ -1,0 +1,70 @@
+-- ============================================================
+-- Makams Ops — 0008: referral review queue
+-- Form submissions no longer land straight in the Candidates DB.
+-- They wait as pending entries that HR can edit, then approve
+-- into the DB (or reject).
+-- ============================================================
+
+create table public.referral_submissions (
+  id               uuid primary key default gen_random_uuid(),
+  response_id      uuid references public.form_responses (id) on delete set null,
+  link_id          uuid references public.form_links (id) on delete set null,
+  source           text,
+  referred_by_name text,
+  referrer_emp_id  text,
+  referrer_phone   text,
+  full_name        text not null,
+  designation      text,
+  area             text,
+  current_company  text,
+  phone            text,
+  status           text not null default 'pending' check (status in ('pending','approved','rejected')),
+  candidate_id     uuid references public.candidates (id) on delete set null,
+  reviewed_by      uuid references public.app_users (id),
+  reviewed_at      timestamptz,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
+create index referral_submissions_status_idx on public.referral_submissions (status);
+create index referral_submissions_response_idx on public.referral_submissions (response_id);
+
+create trigger set_updated_at before update on public.referral_submissions
+  for each row execute function public.tg_set_updated_at();
+
+alter table public.referral_submissions enable row level security;
+create policy referral_submissions_all on public.referral_submissions
+  for all to authenticated using (public.has_role('hr')) with check (public.has_role('hr'));
+
+-- Approve one entry into the Candidates DB (atomic).
+create or replace function public.approve_referral_submission(p_id uuid)
+returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  v public.referral_submissions%rowtype;
+  v_cand uuid;
+begin
+  if not public.has_role('hr') then raise exception 'Not allowed'; end if;
+
+  select * into v from public.referral_submissions where id = p_id for update;
+  if not found then raise exception 'Submission not found'; end if;
+  if v.status <> 'pending' then raise exception 'Already reviewed'; end if;
+
+  insert into public.candidates
+    (full_name, designation, area, current_company, phone,
+     referred_by_name, referrer_emp_id, source, link_id, response_id, created_by)
+  values
+    (v.full_name, v.designation, v.area, v.current_company, v.phone,
+     v.referred_by_name, v.referrer_emp_id, v.source, v.link_id, v.response_id,
+     public.current_app_user_id())
+  returning id into v_cand;
+
+  update public.referral_submissions
+     set status = 'approved', candidate_id = v_cand,
+         reviewed_by = public.current_app_user_id(), reviewed_at = now()
+   where id = p_id;
+
+  return v_cand;
+end $$;
+
+grant execute on function public.approve_referral_submission(uuid) to authenticated;

@@ -1,32 +1,251 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Briefcase, Link2, Copy, Ban, Trash2, ClipboardList, Check } from 'lucide-react'
+import { Plus, Briefcase, Link2, Copy, Ban, Trash2, ClipboardList, Check, Inbox, Pencil, X } from 'lucide-react'
 import { supabase, formUrl } from '../../lib/supabase'
 import {
   PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, Select, Input, Textarea,
-  Field, Modal, EmptyState, FullPageSpinner, Card, useToast,
+  Field, Modal, EmptyState, FullPageSpinner, Card, Checkbox, useToast, cx,
 } from '../../components/ui'
 import { fmtDate, fmtDateTime } from '../../lib/format'
 
 export default function Candidates() {
   const [tab, setTab] = useState('db')
+
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ['referral-submissions-pending-count'],
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('referral_submissions')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending')
+      return count ?? 0
+    },
+  })
+
   return (
     <div>
       <PageHeader
         title="Candidates DB"
-        sub="The referral database — everyone recommended to Makams, whoever sent them. Push the good ones to Prospectives."
+        sub="The referral database — everyone recommended to Makams, whoever sent them. New submissions wait for your approval first."
       />
       <Tabs
         className="mb-5 w-fit"
         tabs={[
           { value: 'db', label: 'Database' },
+          { value: 'submissions', label: 'Submissions', count: pendingCount },
           { value: 'links', label: 'Referral links' },
         ]}
         value={tab}
         onChange={setTab}
       />
-      {tab === 'db' ? <Database /> : <ReferralLinks />}
+      {tab === 'db' && <Database />}
+      {tab === 'submissions' && <Submissions />}
+      {tab === 'links' && <ReferralLinks />}
     </div>
+  )
+}
+
+/* ================= submissions (review queue) ================= */
+
+function Submissions() {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [showReviewed, setShowReviewed] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [busyId, setBusyId] = useState(null)
+
+  const { data: subs = [], isLoading } = useQuery({
+    queryKey: ['referral-submissions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('referral_submissions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1000)
+      if (error) throw error
+      return data
+    },
+  })
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ['referral-submissions'] })
+    qc.invalidateQueries({ queryKey: ['referral-submissions-pending-count'] })
+    qc.invalidateQueries({ queryKey: ['candidates'] })
+  }
+
+  const visible = showReviewed ? subs : subs.filter((s) => s.status === 'pending')
+
+  // group by submission (response), newest first
+  const groups = useMemo(() => {
+    const map = new Map()
+    for (const s of visible) {
+      const key = s.response_id || s.id
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(s)
+    }
+    return [...map.values()]
+  }, [visible])
+
+  const approve = async (entry) => {
+    setBusyId(entry.id)
+    try {
+      const { error } = await supabase.rpc('approve_referral_submission', { p_id: entry.id })
+      if (error) throw error
+      toast(`${entry.full_name} added to the Candidates DB`)
+      refresh()
+    } catch (e) {
+      toast(e.message, 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const reject = async (entry) => {
+    const { error } = await supabase
+      .from('referral_submissions')
+      .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+      .eq('id', entry.id)
+    if (error) return toast(error.message, 'error')
+    refresh()
+  }
+
+  const approveAll = async (entries) => {
+    const pending = entries.filter((e) => e.status === 'pending')
+    setBusyId('all')
+    try {
+      for (const e of pending) {
+        const { error } = await supabase.rpc('approve_referral_submission', { p_id: e.id })
+        if (error) throw error
+      }
+      toast(`${pending.length} candidate${pending.length > 1 ? 's' : ''} added to the DB`)
+      refresh()
+    } catch (e) {
+      toast(e.message, 'error')
+      refresh()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (isLoading) return <FullPageSpinner />
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-slate-500">
+          Everything sent in through referral links. Fix any details, then approve into the database — or reject.
+        </p>
+        <Checkbox label="Show reviewed" checked={showReviewed} onChange={(e) => setShowReviewed(e.target.checked)} />
+      </div>
+
+      {!groups.length ? (
+        <EmptyState icon={Inbox} title="No pending submissions" hint="New referral-form submissions land here for review." />
+      ) : (
+        groups.map((entries) => {
+          const head = entries[0]
+          const pending = entries.filter((e) => e.status === 'pending')
+          return (
+            <Card key={head.response_id || head.id} pad={false}
+              title={
+                <span>
+                  {head.referred_by_name || 'Unknown referrer'}
+                  {head.referrer_emp_id && <Badge tone="slate" className="ml-2">{head.referrer_emp_id}</Badge>}
+                  <span className="ml-2 text-xs font-normal text-slate-400">
+                    {head.source} · {fmtDateTime(head.created_at)}
+                  </span>
+                </span>
+              }
+              actions={pending.length > 1 && (
+                <Button size="xs" variant="secondary" icon={Check} loading={busyId === 'all'} onClick={() => approveAll(entries)}>
+                  Approve all ({pending.length})
+                </Button>
+              )}>
+              <ul className="divide-y divide-slate-100">
+                {entries.map((e) => (
+                  <li key={e.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className={cx('text-sm font-medium', e.status === 'rejected' ? 'text-slate-400 line-through' : 'text-slate-900')}>
+                        {e.full_name}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {[e.designation, e.area, e.current_company, e.phone].filter(Boolean).join(' · ') || 'no details'}
+                      </p>
+                    </div>
+                    {e.status === 'pending' ? (
+                      <div className="flex items-center gap-1.5">
+                        <Button variant="ghost" size="xs" icon={Pencil} onClick={() => setEditing(e)}>Edit</Button>
+                        <Button variant="dangerSubtle" size="xs" icon={X} onClick={() => reject(e)}>Reject</Button>
+                        <Button variant="success" size="xs" icon={Check} loading={busyId === e.id} onClick={() => approve(e)}>Approve</Button>
+                      </div>
+                    ) : e.status === 'approved' ? (
+                      <Badge tone="green"><Check className="h-3 w-3" /> In DB</Badge>
+                    ) : (
+                      <Badge tone="red">Rejected</Badge>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )
+        })
+      )}
+
+      {editing && <SubmissionModal entry={editing} onClose={() => setEditing(null)} onSaved={refresh} />}
+    </div>
+  )
+}
+
+function SubmissionModal({ entry, onClose, onSaved }) {
+  const toast = useToast()
+  const KEYS = ['referred_by_name', 'referrer_emp_id', 'full_name', 'designation', 'area', 'current_company', 'phone']
+  const [form, setForm] = useState(Object.fromEntries(KEYS.map((k) => [k, entry[k] ?? ''])))
+  const [saving, setSaving] = useState(false)
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  const save = async (thenApprove = false) => {
+    if (!form.full_name.trim()) return toast('Candidate name is required', 'error')
+    setSaving(true)
+    try {
+      const payload = {}
+      for (const k of KEYS) payload[k] = form[k] === '' ? null : form[k]
+      const { error } = await supabase.from('referral_submissions').update(payload).eq('id', entry.id)
+      if (error) throw error
+      if (thenApprove) {
+        const { error: e2 } = await supabase.rpc('approve_referral_submission', { p_id: entry.id })
+        if (e2) throw e2
+        toast(`${form.full_name} added to the Candidates DB`)
+      } else {
+        toast('Saved')
+      }
+      onSaved()
+      onClose()
+    } catch (e) {
+      toast(e.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Edit submission — ${entry.full_name}`} size="lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="secondary" onClick={() => save(false)} loading={saving}>Save</Button>
+          <Button variant="success" icon={Check} onClick={() => save(true)} loading={saving}>Save & approve</Button>
+        </>
+      }>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Referred by (name)"><Input value={form.referred_by_name} onChange={set('referred_by_name')} /></Field>
+        <Field label="Referrer EMP ID"><Input value={form.referrer_emp_id} onChange={set('referrer_emp_id')} /></Field>
+        <Field label="Candidate name" required><Input value={form.full_name} onChange={set('full_name')} /></Field>
+        <Field label="Area"><Input value={form.area} onChange={set('area')} /></Field>
+        <Field label="Designation"><Input value={form.designation} onChange={set('designation')} /></Field>
+        <Field label="Current company"><Input value={form.current_company} onChange={set('current_company')} /></Field>
+        <Field label="Phone number"><Input value={form.phone} onChange={set('phone')} /></Field>
+      </div>
+    </Modal>
   )
 }
 

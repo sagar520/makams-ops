@@ -26,6 +26,7 @@ delete from public.learnapp_actions;
 delete from public.sheet_sync_log;
 
 update public.form_responses set candidate_id = null;
+delete from public.referral_submissions;
 delete from public.prospectives;
 delete from public.candidates;
 delete from public.form_responses;

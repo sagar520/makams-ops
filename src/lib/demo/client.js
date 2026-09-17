@@ -149,6 +149,7 @@ const insertDefaults = {
   app_settings: () => ({ updated_at: nowIso() }),
   candidates: () => ({ id: genId('c'), status: 'new', extra: {}, referred_by_name: null, referrer_emp_id: null, picked_at: null, prospective_id: null, hr_comment: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
   prospectives: () => ({ id: genId('pr'), status: 'new', candidate_id: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
+  referral_submissions: () => ({ id: genId('rs'), status: 'pending', candidate_id: null, reviewed_by: null, reviewed_at: null, created_at: nowIso(), updated_at: nowIso() }),
   form_templates: () => ({ id: genId('ft'), kind: 'general', fields: [], active: true, created_at: nowIso(), updated_at: nowIso() }),
   form_links: () => ({ id: genId('fl'), token: genId('demo-link'), active: true, expires_at: null, submission_count: 0, created_by: 'u-aakash', created_at: nowIso() }),
   form_responses: () => ({ id: genId('fr'), answers: {}, files: [], candidate_id: null, created_at: nowIso() }),
@@ -393,6 +394,22 @@ const rpcs = {
     })
   },
 
+  approve_referral_submission: ({ p_id }) => {
+    const v = store.referral_submissions.find((x) => x.id === p_id)
+    if (!v) return err('Submission not found')
+    if (v.status !== 'pending') return err('Already reviewed')
+    const cand = {
+      ...insertDefaults.candidates(),
+      full_name: v.full_name, designation: v.designation, area: v.area,
+      current_company: v.current_company, phone: v.phone,
+      referred_by_name: v.referred_by_name, referrer_emp_id: v.referrer_emp_id,
+      source: v.source, link_id: v.link_id, response_id: v.response_id, created_by: me().id,
+    }
+    store.candidates.unshift(cand)
+    Object.assign(v, { status: 'approved', candidate_id: cand.id, reviewed_by: me().id, reviewed_at: nowIso(), updated_at: nowIso() })
+    return ok(cand.id)
+  },
+
   submit_po: ({ p_po }) => {
     const po = store.purchase_orders.find((p) => p.id === p_po)
     if (!po) return err('PO not found')
@@ -618,10 +635,10 @@ async function invokeFunction(name, body = {}) {
       const response = { ...insertDefaults.form_responses(), form_id: tpl.id, link_id: link.id, answers: body.answers, files: [] }
       store.form_responses.unshift(response)
       for (const c of rows) {
-        store.candidates.unshift({
-          ...insertDefaults.candidates(), ...c,
-          referred_by_name: refName, referrer_emp_id: referrer.emp_id || null,
-          source: link.source_name, link_id: link.id, response_id: response.id, created_by: link.created_by,
+        store.referral_submissions.unshift({
+          ...insertDefaults.referral_submissions(), ...c,
+          referred_by_name: refName, referrer_emp_id: referrer.emp_id || null, referrer_phone: referrer.phone || null,
+          source: link.source_name, link_id: link.id, response_id: response.id,
         })
       }
       link.submission_count = (link.submission_count || 0) + 1
@@ -662,16 +679,13 @@ async function invokeFunction(name, body = {}) {
       const resumeField = tpl.fields.find((f) => f.type === 'file' && f.map_to === 'resume')
       const resume = resumeField ? files.find((x) => x.key === resumeField.key) : null
       if (mapped.full_name) {
-        const cand = {
-          ...insertDefaults.candidates(),
+        store.referral_submissions.unshift({
+          ...insertDefaults.referral_submissions(),
           full_name: mapped.full_name, designation: mapped.title || null, current_company: mapped.organization || null,
-          email: mapped.email || null, phone: mapped.phone || null, area: mapped.location || null,
-          hr_comment: mapped.notes || null, resume_path: resume?.path || null, resume_name: resume?.name || null,
-          referred_by_name: link.source_name,
-          source: link.source_name, link_id: link.id, response_id: response.id, extra: clean, created_by: link.created_by,
-        }
-        store.candidates.unshift(cand)
-        response.candidate_id = cand.id
+          phone: mapped.phone || null, area: mapped.location || null,
+          referred_by_name: link.source_name, referrer_emp_id: null, referrer_phone: null,
+          source: link.source_name, link_id: link.id, response_id: response.id,
+        })
       }
     }
 

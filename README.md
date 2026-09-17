@@ -197,9 +197,12 @@ set — you can go live without them and add them later.
 - **Candidates DB & referral links**: the raw referral pool. HR creates one link per
   source (Candidates DB → Referral links); the public form takes the referrer's details
   once (name, EMP ID if an employee, phone) then a table of candidates (name,
-  designation, area, current company, phone) — every row lands in the DB tagged with
-  Referred-by. HR adds comments and pushes good ones to Prospectives with one click
-  (the row is then flagged "In Prospectives"). Nothing here auto-creates employees.
+  designation, area, current company, phone). Submitted rows land in a **review queue**
+  (Candidates → Submissions tab), where HR edits each entry and approves it into the
+  DB (or rejects it) — nothing enters the Candidates DB unreviewed. Approved rows are
+  tagged with Referred-by; HR adds comments and pushes good ones to Prospectives with
+  one click (the row is then flagged "In Prospectives"). Nothing here auto-creates
+  employees.
 - **Forms**: admin-only builder, jotform-style — add fields (text, paragraph, email,
   phone, number, date, dropdown, file), mark required, reorder, live preview.
   Candidate-intake forms map fields into the candidate database; general forms just

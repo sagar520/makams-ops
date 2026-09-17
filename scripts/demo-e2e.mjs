@@ -109,14 +109,35 @@ await page.click('button:has-text("Add another candidate")')
 await expectText('Candidate 2', 'second candidate row added')
 await page.click('button:has-text("Submit")')
 await expectText('Submitted — thank you', 'referral submission accepted')
-await page.waitForTimeout(21000) // let the candidates query go stale so remount refetches
+await page.waitForTimeout(21000) // let queries go stale so remounts refetch
 await page.goto(`${BASE}/#/candidates`)
-await expectText('Balwinder Sandhu', 'submission created a candidate')
+await clickTabAndExpect('button:has-text("Submissions")', 'Gaurav Nanda', 'submissions queue renders (seeded)')
+await expectText('Balwinder Sandhu', 'new submission waits for review')
+await expectText('E2E Referrer', 'submission grouped under referrer')
+// it must NOT be in the DB yet
+await clickTabAndExpect('button:has-text("Database")', 'Ankit Malhotra', 'back on database tab')
 {
-  const cell = page.locator('td', { hasText: 'E2E Referrer' }).first()
-  try { await cell.waitFor({ timeout: 8000 }); console.log('PASS  candidate tagged with referrer') }
-  catch { failed++; console.log('FAIL  candidate tagged with referrer') }
+  const inDb = await page.locator('td', { hasText: 'Balwinder Sandhu' }).count()
+  if (inDb === 0) console.log('PASS  pending entry not in DB before approval')
+  else { failed++; console.log('FAIL  pending entry leaked into DB') }
 }
+// approve it from the queue
+await clickTabAndExpect('button:has-text("Submissions")', 'Balwinder Sandhu', 'submissions tab again')
+{
+  const row = page.locator('li', { hasText: 'Balwinder Sandhu' })
+  await row.locator('button:has-text("Approve")').click()
+  await page.waitForSelector('text=added to the Candidates DB', { timeout: 8000 })
+}
+console.log('PASS  approve moves entry to DB')
+await clickTabAndExpect('button:has-text("Database")', 'Balwinder Sandhu', 'approved candidate now in DB')
+// reject the other one
+{
+  const row = await page.locator('li', { hasText: 'Simarjit Dhillon' })
+  await page.click('button:has-text("Submissions")')
+  await row.locator('button:has-text("Reject")').click()
+  await page.waitForTimeout(600)
+}
+console.log('PASS  reject works')
 
 // 8. Admin: forms + checklists in settings
 await page.goto(`${BASE}/#/settings`)

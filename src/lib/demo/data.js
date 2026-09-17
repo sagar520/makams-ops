@@ -159,6 +159,7 @@ export function buildSeedStore() {
   ]
 
   const form_responses = [
+    // fr-03 appended below via form_responses_extra
     { id: 'fr-01', form_id: 'ft-referral', link_id: 'fl-01', answers: { referrer: { name: 'Ramesh Kumar (TalentBridge)', emp_id: null, phone: '98150 00110' }, candidates: [{ name: 'Ankit Malhotra', designation: 'Sales Officer', area: 'Ludhiana', current_company: 'Patanjali Foods', phone: '98123 44556' }, { name: 'Shreya Iyer', designation: 'Territory Manager', area: 'Chandigarh', current_company: 'Himalaya Wellness', phone: '99880 11223' }] }, files: [], candidate_id: 'c-01', created_at: iso(16) },
     { id: 'fr-02', form_id: 'ft-referral', link_id: 'fl-02', answers: { referrer: { name: 'Deepak Verma', emp_id: 'RM001', phone: '98110 22331' }, candidates: [{ name: 'Harjinder Pal', designation: 'Senior Sales Executive', area: 'Mohali', current_company: 'Chandigarh Botanicals', phone: '98761 20034' }, { name: 'Mohit Saini', designation: 'Field Sales Executive', area: 'Ludhiana', current_company: 'Local distributor', phone: '97110 88996' }] }, files: [], candidate_id: 'c-03', created_at: iso(25) },
   ]
@@ -182,6 +183,14 @@ export function buildSeedStore() {
     { id: 'pr-05', full_name: 'Ramanpreet Kaur', designation: 'Territory Manager', area: 'Amritsar', contact: 'raman.k@gmail.com', status: 'interested', candidate_id: null, created_by: 'u-priya', created_at: iso(12), updated_at: iso(6) },
     { id: 'pr-06', full_name: 'Vikram Rathi', designation: 'Sales Rep', area: 'Bathinda', contact: '98995 66778', status: 'joined', candidate_id: null, created_by: 'u-priya', created_at: iso(30), updated_at: iso(11) },
     { id: 'pr-07', full_name: 'Sahil Chopra', designation: 'Sales Rep', area: 'Ludhiana', contact: '99145 87230', status: 'rejected', candidate_id: null, created_by: 'u-priya', created_at: iso(22), updated_at: iso(15) },
+  ]
+
+  const form_responses_extra = { id: 'fr-03', form_id: 'ft-referral', link_id: 'fl-01', answers: { referrer: { name: 'Ramesh Kumar (TalentBridge)', emp_id: null, phone: '98150 00110' }, candidates: [{ name: 'Gaurav Nanda', designation: 'Sales Officer', area: 'Patiala', current_company: 'Dabur (distributor)', phone: '98700 45612' }, { name: 'Simarjit Dhillon', designation: 'Sales Rep', area: 'Moga', current_company: 'Local FMCG stockist', phone: '97910 33445' }] }, files: [], candidate_id: null, created_at: iso(1) }
+
+  const referral_submissions = [
+    { id: 'rs-01', response_id: 'fr-03', link_id: 'fl-01', source: 'Consultant Ramesh — TalentBridge', referred_by_name: 'Ramesh Kumar (TalentBridge)', referrer_emp_id: null, referrer_phone: '98150 00110', full_name: 'Gaurav Nanda', designation: 'Sales Officer', area: 'Patiala', current_company: 'Dabur (distributor)', phone: '98700 45612', status: 'pending', candidate_id: null, reviewed_by: null, reviewed_at: null, created_at: iso(1), updated_at: iso(1) },
+    { id: 'rs-02', response_id: 'fr-03', link_id: 'fl-01', source: 'Consultant Ramesh — TalentBridge', referred_by_name: 'Ramesh Kumar (TalentBridge)', referrer_emp_id: null, referrer_phone: '98150 00110', full_name: 'Simarjit Dhillon', designation: 'Sales Rep', area: 'Moga', current_company: 'Local FMCG stockist', phone: '97910 33445', status: 'pending', candidate_id: null, reviewed_by: null, reviewed_at: null, created_at: iso(1), updated_at: iso(1) },
+    { id: 'rs-03', response_id: 'fr-02', link_id: 'fl-02', source: 'Employee referral', referred_by_name: 'Deepak Verma', referrer_emp_id: 'RM001', referrer_phone: '98110 22331', full_name: 'Harjinder Pal', designation: 'Senior Sales Executive', area: 'Mohali', current_company: 'Chandigarh Botanicals', phone: '98761 20034', status: 'approved', candidate_id: 'c-03', reviewed_by: 'u-priya', reviewed_at: iso(24), created_at: iso(25), updated_at: iso(24) },
   ]
 
   const sheet_sync_log = [
@@ -331,7 +340,9 @@ export function buildSeedStore() {
     app_users, app_settings, people, person_documents, upload_links,
     checklist_templates, checklist_template_items, person_checklists, person_checklist_items,
     learnapp_actions, sheet_sync_log,
-    candidates, prospectives, form_templates, form_links, form_responses,
+    candidates, prospectives, form_templates, form_links,
+    form_responses: [...form_responses, form_responses_extra],
+    referral_submissions,
     po_types, delivery_locations, vendors, approval_rules, approval_rule_steps,
     purchase_orders, po_items, po_approval_steps, po_events, receipts, receipt_items,
     _po_counter: 7,
