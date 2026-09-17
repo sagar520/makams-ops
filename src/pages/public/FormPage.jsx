@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { CheckCircle2, AlertTriangle, Loader2, Upload, Plus, X } from 'lucide-react'
 import { supabase, functionsUrl, supabaseAnonKey, isDemo, callFunction } from '../../lib/supabase'
 import { Button, Input, Textarea, Select, Field, cx } from '../../components/ui'
+import { isMobile, normalizeMobile, mobileInput, MOBILE_HINT } from '../../lib/phone'
 
 async function postForm(token, answers, files = {}) {
   if (isDemo) {
@@ -165,24 +166,63 @@ let rowKey = 0
 const emptyRow = () => ({ key: ++rowKey, name: '', designation: '', area: '', current_company: '', phone: '' })
 
 function ReferralForm({ token, info, onDone }) {
-  const [referrer, setReferrer] = useState({ name: '', emp_id: '', phone: '' })
+  const linked = info.referrer || {}
+  const locked = !!linked.locked
+  const [referrer, setReferrer] = useState({
+    name: linked.name || '',
+    emp_id: linked.emp_id || '',
+    phone: mobileInput(linked.phone || ''),
+  })
   const [rows, setRows] = useState([emptyRow()])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  const setRef = (k) => (e) => setReferrer((r) => ({ ...r, [k]: e.target.value }))
-  const setRow = (key, k, v) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, [k]: v } : r)))
+  const setRef = (k) => (e) => setReferrer((r) => ({ ...r, [k]: k === 'phone' ? mobileInput(e.target.value) : e.target.value }))
+  const setRow = (key, k, v) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, [k]: k === 'phone' ? mobileInput(v) : v } : r)))
+
+  const REQUIRED = [
+    ['name', 'Name'],
+    ['phone', 'Phone number'],
+    ['designation', 'Designation'],
+    ['area', 'Area'],
+    ['current_company', 'Current company'],
+  ]
+
+  // a row counts as "started" once anything is typed in it
+  const started = (r) => REQUIRED.some(([k]) => String(r[k] || '').trim())
 
   const submit = async () => {
     setError(null)
     if (!referrer.name.trim()) return setError('Please enter your name')
-    const filled = rows.filter((r) => r.name.trim())
-    if (!filled.length) return setError('Add at least one candidate with a name')
+    if (referrer.phone && !isMobile(referrer.phone)) return setError(`Your phone: ${MOBILE_HINT}`)
+
+    const filled = rows.filter(started)
+    if (!filled.length) return setError('Add at least one candidate')
+
+    for (let i = 0; i < filled.length; i++) {
+      const r = filled[i]
+      for (const [k, label] of REQUIRED) {
+        if (!String(r[k] || '').trim()) return setError(`Candidate ${i + 1}: ${label} is required`)
+      }
+      if (!isMobile(r.phone)) return setError(`Candidate ${i + 1}: phone must be a ${MOBILE_HINT}`)
+    }
+
     setSubmitting(true)
     try {
       await postForm(token, {
-        referrer: { name: referrer.name.trim(), emp_id: referrer.emp_id.trim() || null, phone: referrer.phone.trim() || null },
-        candidates: filled.map(({ key, ...r }) => r),
+        referrer: {
+          name: referrer.name.trim(),
+          emp_id: referrer.emp_id.trim() || null,
+          phone: normalizeMobile(referrer.phone),
+        },
+        candidates: filled.map(({ key, ...r }) => ({
+          ...r,
+          name: r.name.trim(),
+          designation: r.designation.trim(),
+          area: r.area.trim(),
+          current_company: r.current_company.trim(),
+          phone: normalizeMobile(r.phone),
+        })),
       })
       onDone()
     } catch (e) {
@@ -190,6 +230,8 @@ function ReferralForm({ token, info, onDone }) {
       setSubmitting(false)
     }
   }
+
+  const readyCount = rows.filter((r) => REQUIRED.every(([k]) => String(r[k] || '').trim()) && isMobile(r.phone)).length
 
   return (
     <div className="min-h-screen bg-slate-100 pb-16">
@@ -205,16 +247,27 @@ function ReferralForm({ token, info, onDone }) {
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-3 text-sm font-semibold text-slate-800">Your details</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="Your name" required><Input value={referrer.name} onChange={setRef('name')} /></Field>
-            <Field label="Employee ID" hint="If you work at Makams"><Input value={referrer.emp_id} onChange={setRef('emp_id')} placeholder="e.g. MKM-004" /></Field>
-            <Field label="Your phone"><Input value={referrer.phone} onChange={setRef('phone')} /></Field>
+            <Field label="Your name" required>
+              <Input value={referrer.name} onChange={setRef('name')} disabled={locked} className={locked ? 'bg-slate-50 text-slate-500' : undefined} />
+            </Field>
+            <Field label="Employee ID" hint={locked ? undefined : 'If you work at Makams'}>
+              <Input value={referrer.emp_id} onChange={setRef('emp_id')} placeholder="e.g. SALES001" disabled={locked} className={locked ? 'bg-slate-50 text-slate-500' : undefined} />
+            </Field>
+            <Field label="Your phone" hint={MOBILE_HINT}>
+              <PhoneInput value={referrer.phone} onChange={setRef('phone')} />
+            </Field>
           </div>
+          {locked && (
+            <p className="mt-3 text-xs text-slate-400">
+              This link was issued to you, so your name and Employee ID are filled in already.
+            </p>
+          )}
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-3">
             <h2 className="text-sm font-semibold text-slate-800">Candidates you're referring</h2>
-            <p className="text-xs text-slate-400">Add as many as you like — only a name is compulsory.</p>
+            <p className="text-xs text-slate-400">Add as many as you like — every field is required for each candidate.</p>
           </div>
           <div className="space-y-3 p-4">
             {rows.map((r, i) => (
@@ -229,16 +282,18 @@ function ReferralForm({ token, info, onDone }) {
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Field label="Name" required><Input className="bg-white" value={r.name} onChange={(e) => setRow(r.key, 'name', e.target.value)} /></Field>
-                  <Field label="Phone number"><Input className="bg-white" value={r.phone} onChange={(e) => setRow(r.key, 'phone', e.target.value)} /></Field>
-                  <Field label="Designation"><Input className="bg-white" value={r.designation} onChange={(e) => setRow(r.key, 'designation', e.target.value)} /></Field>
-                  <Field label="Area"><Input className="bg-white" value={r.area} onChange={(e) => setRow(r.key, 'area', e.target.value)} /></Field>
-                  <Field label="Current company" className="sm:col-span-2"><Input className="bg-white" value={r.current_company} onChange={(e) => setRow(r.key, 'current_company', e.target.value)} /></Field>
+                  <Field label="Phone number" required hint={MOBILE_HINT}>
+                    <PhoneInput className="bg-white" value={r.phone} onChange={(e) => setRow(r.key, 'phone', e.target.value)} />
+                  </Field>
+                  <Field label="Designation" required><Input className="bg-white" value={r.designation} onChange={(e) => setRow(r.key, 'designation', e.target.value)} /></Field>
+                  <Field label="Area" required><Input className="bg-white" value={r.area} onChange={(e) => setRow(r.key, 'area', e.target.value)} placeholder="e.g. Ludhiana" /></Field>
+                  <Field label="Current company" required className="sm:col-span-2"><Input className="bg-white" value={r.current_company} onChange={(e) => setRow(r.key, 'current_company', e.target.value)} /></Field>
                 </div>
               </div>
             ))}
             <Button variant="secondary" size="sm" icon={Plus} onClick={() => setRows((rs) => [...rs, emptyRow()])}>Add another candidate</Button>
             <Button className="w-full" loading={submitting} onClick={submit}>
-              Submit {rows.filter((r) => r.name.trim()).length || ''} candidate{rows.filter((r) => r.name.trim()).length === 1 ? '' : 's'}
+              Submit {readyCount || ''} candidate{readyCount === 1 ? '' : 's'}
             </Button>
           </div>
         </div>
@@ -247,6 +302,16 @@ function ReferralForm({ token, info, onDone }) {
           Shared with {info.source_name} · Powered by {info.company} Ops
         </p>
       </div>
+    </div>
+  )
+}
+
+/** Text field with a fixed +91 prefix — only the 10 digits are typed. */
+function PhoneInput({ value, onChange, className }) {
+  return (
+    <div className="flex">
+      <span className="inline-flex items-center rounded-l-lg border border-r-0 border-slate-300 bg-slate-100 px-2.5 text-sm text-slate-500">+91</span>
+      <Input className={cx('rounded-l-none', className)} inputMode="numeric" placeholder="98765 43210" value={value} onChange={onChange} />
     </div>
   )
 }

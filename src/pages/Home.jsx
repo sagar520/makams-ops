@@ -47,14 +47,14 @@ export default function Home() {
       const [active, prospectives, referrals, onboarding, exits] = await Promise.all([
         supabase.from('people').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('prospectives').select('id', { count: 'exact', head: true }).in('status', ['new', 'contacted', 'interested', 'interview_scheduled', 'offer_letter_sent']),
-        supabase.from('candidates').select('id', { count: 'exact', head: true }),
+        supabase.rpc('candidates_count'),   // HR can't list the DB — only count it
         supabase.from('person_checklists').select('id', { count: 'exact', head: true }).eq('kind', 'onboarding').eq('status', 'in_progress'),
         supabase.from('person_checklists').select('id', { count: 'exact', head: true }).eq('kind', 'exit').eq('status', 'in_progress'),
       ])
       return {
         active: active.count ?? 0,
         prospectives: prospectives.count ?? 0,
-        referrals: referrals.count ?? 0,
+        referrals: referrals.data ?? 0,
         onboarding: onboarding.count ?? 0,
         exits: exits.count ?? 0,
       }

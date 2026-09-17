@@ -151,7 +151,7 @@ const insertDefaults = {
   prospectives: () => ({ id: genId('pr'), source: 'Other', status: 'new', candidate_id: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
   referral_submissions: () => ({ id: genId('rs'), status: 'pending', candidate_id: null, reviewed_by: null, reviewed_at: null, created_at: nowIso(), updated_at: nowIso() }),
   form_templates: () => ({ id: genId('ft'), kind: 'general', fields: [], active: true, created_at: nowIso(), updated_at: nowIso() }),
-  form_links: () => ({ id: genId('fl'), token: genId('demo-link'), active: true, expires_at: null, submission_count: 0, created_by: 'u-aakash', created_at: nowIso() }),
+  form_links: () => ({ id: genId('fl'), token: genId('demo-link'), active: true, expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), referrer_name: null, referrer_emp_id: null, referrer_phone: null, submission_count: 0, created_by: 'u-aakash', created_at: nowIso() }),
   form_responses: () => ({ id: genId('fr'), answers: {}, files: [], candidate_id: null, created_at: nowIso() }),
 }
 
@@ -327,6 +327,15 @@ function pushEvent(po_id, kind, detail = {}) {
   store.po_events.push({ id: genId('e'), po_id, kind, actor_id: me().id, detail, created_at: nowIso() })
 }
 
+// mirrors src/lib/phone.js — demo mode enforces the same +91 rule
+function demoMobile(input) {
+  const d = String(input ?? '').replace(/\D+/g, '')
+  const t = d.length === 12 && d.startsWith('91') ? d.slice(2)
+    : d.length === 11 && d.startsWith('0') ? d.slice(1)
+    : d
+  return /^[6-9]\d{9}$/.test(t) ? `+91${t}` : null
+}
+
 const rpcs = {
   claim_app_user: () => ok(true),
 
@@ -389,10 +398,64 @@ const rpcs = {
     if (!form || !form.active) return ok({ ok: false, reason: 'revoked' })
     const company = store.app_settings.find((s) => s.key === 'company')?.value?.name || 'Makams'
     return ok({
-      ok: true, company, source_name: link.source_name,
+      ok: true, company, source_name: link.source_name, expires_at: link.expires_at,
+      referrer: {
+        name: link.referrer_name ?? null,
+        emp_id: link.referrer_emp_id ?? null,
+        phone: link.referrer_phone ?? null,
+        locked: !!link.referrer_name,
+      },
       form: { name: form.name, description: form.description, kind: form.kind, fields: form.fields },
     })
   },
+
+  search_candidates: ({ p_area }) => {
+    const v = String(p_area || '').trim()
+    if (v.length < 2) return err('Type at least 2 characters of an area to search')
+    return ok(store.candidates.filter((c) => String(c.area || '').toLowerCase().includes(v.toLowerCase())))
+  },
+
+  candidates_count: () => ok(store.candidates.length),
+
+  save_candidate: ({ p_id, p_patch }) => {
+    const allowed = ['full_name','designation','area','current_company','phone','referred_by_name','referrer_emp_id','hr_comment','source']
+    const patch = {}
+    for (const k of allowed) if (k in (p_patch || {})) patch[k] = p_patch[k]
+    if (!p_id) {
+      if (!String(patch.full_name || '').trim()) return err('Candidate name is required')
+      const c = { ...insertDefaults.candidates(), ...patch, source: patch.source || 'Manual entry', created_by: me().id }
+      store.candidates.unshift(c)
+      return ok(c.id)
+    }
+    const c = store.candidates.find((x) => x.id === p_id)
+    if (!c) return err('Candidate not found')
+    Object.assign(c, patch, { updated_at: nowIso() })
+    return ok(c.id)
+  },
+
+  delete_candidate: ({ p_id }) => {
+    const i = store.candidates.findIndex((x) => x.id === p_id)
+    if (i >= 0) store.candidates.splice(i, 1)
+    return ok(null)
+  },
+
+  pick_candidate: ({ p_id }) => {
+    const c = store.candidates.find((x) => x.id === p_id)
+    if (!c) return err('Candidate not found')
+    if (c.prospective_id) return err('Already on the Prospectives sheet')
+    const pros = {
+      ...insertDefaults.prospectives(),
+      full_name: c.full_name, designation: c.designation, area: c.area, contact: c.phone,
+      status: 'new', candidate_id: c.id,
+      source: c.referrer_emp_id ? 'Internal Referral' : 'Other',
+    }
+    store.prospectives.unshift(pros)
+    Object.assign(c, { picked_at: nowIso(), prospective_id: pros.id, updated_at: nowIso() })
+    return ok(pros.id)
+  },
+
+  candidate_areas: () =>
+    ok([...new Set(store.candidates.map((c) => c.area).filter((a) => a && String(a).trim()))].sort()),
 
   approve_referral_submission: ({ p_id }) => {
     const v = store.referral_submissions.find((x) => x.id === p_id)
@@ -619,25 +682,39 @@ async function invokeFunction(name, body = {}) {
 
     if (tpl.kind === 'referral') {
       const referrer = body.answers?.referrer || {}
-      const refName = String(referrer.name || '').trim()
+      const refName = String(link.referrer_name || referrer.name || '').trim()
       if (!refName) return { error: 'Your name is required' }
-      const rows = (body.answers?.candidates || [])
-        .map((c) => ({
+      const refEmpId = String(link.referrer_emp_id || referrer.emp_id || '').trim() || null
+      const refPhone = demoMobile(link.referrer_phone || referrer.phone)
+      if ((link.referrer_phone || referrer.phone) && !refPhone) {
+        return { error: 'Your phone must be a 10-digit Indian mobile number' }
+      }
+
+      const cands = body.answers?.candidates || []
+      if (!cands.length) return { error: 'Add at least one candidate' }
+      const rows = []
+      for (let i = 0; i < cands.length; i++) {
+        const c = cands[i] || {}
+        const row = {
           full_name: String(c.name || '').trim(),
-          designation: String(c.designation || '').trim() || null,
-          area: String(c.area || '').trim() || null,
-          current_company: String(c.current_company || '').trim() || null,
-          phone: String(c.phone || '').trim() || null,
-        }))
-        .filter((c) => c.full_name)
-      if (!rows.length) return { error: 'Add at least one candidate with a name' }
+          designation: String(c.designation || '').trim(),
+          area: String(c.area || '').trim(),
+          current_company: String(c.current_company || '').trim(),
+          phone: demoMobile(c.phone),
+        }
+        const missing = [['full_name', 'name'], ['designation', 'designation'], ['area', 'area'], ['current_company', 'current company']]
+          .find(([k]) => !row[k])
+        if (missing) return { error: `Candidate ${i + 1}: ${missing[1]} is required` }
+        if (!row.phone) return { error: `Candidate ${i + 1}: phone must be a 10-digit Indian mobile number` }
+        rows.push(row)
+      }
 
       const response = { ...insertDefaults.form_responses(), form_id: tpl.id, link_id: link.id, answers: body.answers, files: [] }
       store.form_responses.unshift(response)
       for (const c of rows) {
         store.referral_submissions.unshift({
           ...insertDefaults.referral_submissions(), ...c,
-          referred_by_name: refName, referrer_emp_id: referrer.emp_id || null, referrer_phone: referrer.phone || null,
+          referred_by_name: refName, referrer_emp_id: refEmpId, referrer_phone: refPhone,
           source: link.source_name, link_id: link.id, response_id: response.id,
         })
       }

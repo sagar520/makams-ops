@@ -11,6 +11,19 @@ import { corsHeaders, json, serviceClient } from '../_shared/utils.ts'
 const MAX_BYTES = 15 * 1024 * 1024
 const ALLOWED_EXT = /\.(pdf|docx?|jpe?g|png|webp)$/i
 
+// ---- Indian mobile numbers: stored canonically as +91XXXXXXXXXX ----
+function tenDigits(input: unknown): string {
+  const d = String(input ?? '').replace(/\D+/g, '')
+  if (d.length === 12 && d.startsWith('91')) return d.slice(2)
+  if (d.length === 11 && d.startsWith('0')) return d.slice(1)
+  if (d.length === 13 && d.startsWith('091')) return d.slice(3)
+  return d
+}
+const normalizeMobile = (input: unknown): string | null => {
+  const t = tenDigits(input)
+  return /^[6-9]\d{9}$/.test(t) ? `+91${t}` : null
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -43,22 +56,38 @@ Deno.serve(async (req) => {
   if (tpl.kind === 'referral') {
     const referrer = (answers as any).referrer || {}
     const cands: any[] = Array.isArray((answers as any).candidates) ? (answers as any).candidates : []
-    const refName = String(referrer.name || '').trim()
-    if (!refName) return json({ error: 'Your name is required' }, 400)
-    const rows = cands
-      .map((c) => ({
-        full_name: String(c.name || '').trim().slice(0, 200),
-        designation: String(c.designation || '').trim().slice(0, 200) || null,
-        area: String(c.area || '').trim().slice(0, 200) || null,
-        current_company: String(c.current_company || '').trim().slice(0, 200) || null,
-        phone: String(c.phone || '').trim().slice(0, 40) || null,
-      }))
-      .filter((c) => c.full_name)
-    if (!rows.length) return json({ error: 'Add at least one candidate with a name' }, 400)
-    if (rows.length > 50) return json({ error: 'Maximum 50 candidates per submission' }, 400)
 
-    const refEmpId = String(referrer.emp_id || '').trim() || null
-    const refPhone = String(referrer.phone || '').trim() || null
+    // A link issued to a specific employee always wins over whatever was posted.
+    const refName = String(link.referrer_name || referrer.name || '').trim()
+    if (!refName) return json({ error: 'Your name is required' }, 400)
+    const refEmpId = String(link.referrer_emp_id || referrer.emp_id || '').trim() || null
+    const refPhone = normalizeMobile(link.referrer_phone || referrer.phone)
+    if ((link.referrer_phone || referrer.phone) && !refPhone) {
+      return json({ error: 'Your phone must be a 10-digit Indian mobile number' }, 400)
+    }
+
+    if (!cands.length) return json({ error: 'Add at least one candidate' }, 400)
+    if (cands.length > 50) return json({ error: 'Maximum 50 candidates per submission' }, 400)
+
+    const rows: any[] = []
+    for (let i = 0; i < cands.length; i++) {
+      const c = cands[i] || {}
+      const row = {
+        full_name: String(c.name || '').trim().slice(0, 200),
+        designation: String(c.designation || '').trim().slice(0, 200),
+        area: String(c.area || '').trim().slice(0, 200),
+        current_company: String(c.current_company || '').trim().slice(0, 200),
+        phone: normalizeMobile(c.phone),
+      }
+      const required: [string, string][] = [
+        ['full_name', 'name'], ['designation', 'designation'],
+        ['area', 'area'], ['current_company', 'current company'],
+      ]
+      const missing = required.find(([k]) => !(row as any)[k])
+      if (missing) return json({ error: `Candidate ${i + 1}: ${missing[1]} is required` }, 400)
+      if (!row.phone) return json({ error: `Candidate ${i + 1}: phone must be a 10-digit Indian mobile number` }, 400)
+      rows.push(row)
+    }
 
     const { data: response, error: respErr } = await svc
       .from('form_responses')

@@ -89,9 +89,12 @@ console.log('PASS  prospective status changed inline')
   await selects.nth(2).selectOption('')
 }
 
-// 5. Candidates DB (referral database)
+// 5. Candidates DB (referral database) — gated behind an area search
 await page.goto(`${BASE}/#/candidates`)
-await expectText('Ankit Malhotra', 'candidates DB renders')
+await expectText('Search an area to open the database', 'DB gated until an area is searched')
+await page.locator('input[list="candidate-areas"]').fill('Ludhiana')
+await page.click('button:has-text("Search")')
+await expectText('Ankit Malhotra', 'candidates DB renders for that area')
 {
   const cell = page.locator('td', { hasText: 'Ramesh Kumar' }).first()
   try { await cell.waitFor({ timeout: 8000 }); console.log('PASS  referred-by shown') }
@@ -99,41 +102,110 @@ await expectText('Ankit Malhotra', 'candidates DB renders')
 }
 await expectText('RM001', 'referrer EMP ID shown')
 await expectText('In Prospectives', 'picked candidates flagged')
-// push Shreya Iyer to prospectives
+// push a Ludhiana candidate to prospectives
 {
-  const row = page.locator('tr', { hasText: 'Shreya Iyer' })
+  const row = page.locator('tr', { hasText: 'Mohit Saini' })
   await row.locator('button:has-text("Add to Prospectives")').click()
   await page.waitForSelector('text=added to Prospectives', { timeout: 8000 })
 }
 console.log('PASS  add-to-prospectives works')
 await page.goto(`${BASE}/#/prospectives`)
-await expectText('Shreya Iyer', 'copied row appears on the sheet')
+await expectText('Mohit Saini', 'copied row appears on the sheet')
 
 // 6. Referral links tab
 await page.goto(`${BASE}/#/candidates`)
 await clickTabAndExpect('button:has-text("Referral links")', 'New referral link', 'referral links tab')
 await expectText('Consultant Ramesh — TalentBridge', 'source link listed')
 
-// 7. Public referral form: referrer details + multiple candidates
+// 7. Public referral form: prefilled referrer, required fields, +91 phone
+// 7a. a link issued to an employee prefills (and locks) the referrer
+await page.goto(`${BASE}/#/f/demo-team-referrals`)
+await expectText('This link was issued to you', 'employee link prefills the referrer')
+{
+  const name = page.locator('input').first()
+  const val = await name.inputValue()
+  const disabled = await name.isDisabled()
+  if (val === 'Deepak Verma' && disabled) console.log('PASS  referrer name prefilled and locked')
+  else { failed++; console.log(`FAIL  referrer prefill (value=${val} disabled=${disabled})`) }
+}
+
+// 7b. an expired link is refused
+await page.goto(`${BASE}/#/f/demo-expired-link`)
+await expectText('expired', 'expired link is refused')
+
+// 7c. the open link: validation then a real submission
 await page.goto(`${BASE}/#/f/demo-source-ramesh`)
 await expectText('Candidate referral form', 'referral form renders')
 await expectText('Your details', 'referrer section shows')
 await expectText('Candidate 1', 'candidate rows show')
-await page.fill('input >> nth=0', 'E2E Referrer')
-await page.fill('input >> nth=3', 'Balwinder Sandhu')   // candidate 1 name
-await page.fill('input >> nth=4', '90000 11111')        // candidate 1 phone
+
+const cand = (i, label) => page.locator('div.rounded-lg', { hasText: `Candidate ${i}` }).locator(`label:has-text("${label}") input`).first()
+
+await page.locator('input').first().fill('E2E Referrer')
+await cand(1, 'Name').fill('Balwinder Sandhu')
+await page.click('button:has-text("Submit")')
+await expectText('Candidate 1: Phone number is required', 'missing required field blocked')
+
+await cand(1, 'Designation').fill('Sales Officer')
+await cand(1, 'Area').fill('Ludhiana')
+await cand(1, 'Current company').fill('Nutra Foods')
+await cand(1, 'Phone number').fill('1234567890')     // landline-style, not a mobile
+await page.click('button:has-text("Submit")')
+await expectText('10-digit mobile', 'bad phone blocked')
+
+await cand(1, 'Phone number').fill('9000011111')
 await page.click('button:has-text("Add another candidate")')
 await expectText('Candidate 2', 'second candidate row added')
+await cand(2, 'Name').fill('Half Filled')
+await page.click('button:has-text("Submit")')
+await expectText('Candidate 2: Phone number is required', 'half-filled second row blocked')
+{
+  // drop row 2 so only the complete candidate is submitted
+  await page.locator('div.rounded-lg', { hasText: 'Candidate 2' }).locator('button').first().click()
+}
 await page.click('button:has-text("Submit")')
 await expectText('Submitted — thank you', 'referral submission accepted')
+
 await page.waitForTimeout(21000) // let queries go stale so remounts refetch
 await page.goto(`${BASE}/#/candidates`)
 await clickTabAndExpect('button:has-text("Submissions")', 'Gaurav Nanda', 'submissions queue renders (seeded)')
 await expectText('Balwinder Sandhu', 'new submission waits for review')
 await expectText('E2E Referrer', 'submission grouped under referrer')
-// it must NOT be in the DB yet
-await clickTabAndExpect('button:has-text("Database")', 'Ankit Malhotra', 'back on database tab')
+await expectText('+919000011111', 'phone stored in +91 form')
+
+// 7d. the database is gated behind an area search
+await clickTabAndExpect('button:has-text("Database")', 'Search an area to open the database', 'DB not listed by default')
 {
+  const leaked = await page.locator('td', { hasText: 'Ankit Malhotra' }).count()
+  if (leaked === 0) console.log('PASS  no candidate rows before searching')
+  else { failed++; console.log('FAIL  candidate rows visible without a search') }
+}
+{
+  await page.locator('input[list="candidate-areas"]').fill('Ludhiana')
+  await page.click('button:has-text("Search")')
+  await page.waitForSelector('text=Ankit Malhotra', { timeout: 8000 })
+  console.log('PASS  area search pulls that area')
+  const other = await page.locator('td', { hasText: 'Harjinder Pal' }).count()  // Mohali
+  if (other === 0) console.log('PASS  other areas stay hidden')
+  else { failed++; console.log('FAIL  search returned another area') }
+}
+
+// 7e. HR comment edits inline
+{
+  const row = page.locator('tr', { hasText: 'Ankit Malhotra' })
+  await row.locator('td').nth(6).locator('button').click()
+  const box = row.locator('textarea')
+  await box.fill('Called — keen to move')
+  await box.press('Enter')
+  await page.waitForSelector('text=Comment saved', { timeout: 8000 })
+  console.log('PASS  HR comment edited inline')
+}
+
+// 7f. the pending entry is not in the DB until approved
+{
+  await page.locator('input[list="candidate-areas"]').fill('Ludhiana')
+  await page.click('button:has-text("Search")')
+  await page.waitForTimeout(600)
   const inDb = await page.locator('td', { hasText: 'Balwinder Sandhu' }).count()
   if (inDb === 0) console.log('PASS  pending entry not in DB before approval')
   else { failed++; console.log('FAIL  pending entry leaked into DB') }
@@ -146,15 +218,20 @@ await clickTabAndExpect('button:has-text("Submissions")', 'Balwinder Sandhu', 's
   await page.waitForSelector('text=added to the Candidates DB', { timeout: 8000 })
 }
 console.log('PASS  approve moves entry to DB')
-await clickTabAndExpect('button:has-text("Database")', 'Balwinder Sandhu', 'approved candidate now in DB')
-// reject the other one
+await clickTabAndExpect('button:has-text("Database")', 'Search an area', 'back on database tab')
 {
-  const row = await page.locator('li', { hasText: 'Simarjit Dhillon' })
-  await page.click('button:has-text("Submissions")')
-  await row.locator('button:has-text("Reject")').click()
-  await page.waitForTimeout(600)
+  await page.locator('input[list="candidate-areas"]').fill('Ludhiana')
+  await page.click('button:has-text("Search")')
+  await page.waitForSelector('text=Balwinder Sandhu', { timeout: 8000 })
+  console.log('PASS  approved candidate now in DB')
 }
-console.log('PASS  reject works')
+// admin override opens everything
+{
+  await page.click('button:has-text("open the full database")')
+  await page.waitForSelector('text=Full database open', { timeout: 8000 })
+  await page.waitForSelector('text=Harjinder Pal', { timeout: 8000 })
+  console.log('PASS  admin can open the full database')
+}
 
 // 8. Admin: forms + checklists in settings
 await page.goto(`${BASE}/#/settings`)

@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Briefcase, Link2, Copy, Ban, Trash2, ClipboardList, Check, Inbox, Pencil, X } from 'lucide-react'
+import { Plus, Briefcase, Link2, Copy, Ban, Trash2, ClipboardList, Check, Inbox, Pencil, X, Search, Clock, ShieldCheck } from 'lucide-react'
 import { supabase, formUrl } from '../../lib/supabase'
 import {
   PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, Select, Input, Textarea,
   Field, Modal, EmptyState, FullPageSpinner, Card, Checkbox, useToast, cx,
 } from '../../components/ui'
 import { fmtDate, fmtDateTime } from '../../lib/format'
+import { fmtMobile, isMobile, normalizeMobile, mobileInput, MOBILE_HINT } from '../../lib/phone'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function Candidates() {
   const [tab, setTab] = useState('db')
@@ -205,10 +207,12 @@ function SubmissionModal({ entry, onClose, onSaved }) {
 
   const save = async (thenApprove = false) => {
     if (!form.full_name.trim()) return toast('Candidate name is required', 'error')
+    if (form.phone && !isMobile(form.phone)) return toast(`Phone: ${MOBILE_HINT}`, 'error')
     setSaving(true)
     try {
       const payload = {}
       for (const k of KEYS) payload[k] = form[k] === '' ? null : form[k]
+      payload.phone = normalizeMobile(form.phone)
       const { error } = await supabase.from('referral_submissions').update(payload).eq('id', entry.id)
       if (error) throw error
       if (thenApprove) {
@@ -243,7 +247,13 @@ function SubmissionModal({ entry, onClose, onSaved }) {
         <Field label="Area"><Input value={form.area} onChange={set('area')} /></Field>
         <Field label="Designation"><Input value={form.designation} onChange={set('designation')} /></Field>
         <Field label="Current company"><Input value={form.current_company} onChange={set('current_company')} /></Field>
-        <Field label="Phone number"><Input value={form.phone} onChange={set('phone')} /></Field>
+        <Field label="Phone number" hint={MOBILE_HINT}>
+          <div className="flex">
+            <span className="inline-flex items-center rounded-l-lg border border-r-0 border-slate-300 bg-slate-100 px-2.5 text-sm text-slate-500">+91</span>
+            <Input className="rounded-l-none" inputMode="numeric" placeholder="98765 43210"
+              value={mobileInput(form.phone)} onChange={(e) => setForm((f) => ({ ...f, phone: mobileInput(e.target.value) }))} />
+          </div>
+        </Field>
       </div>
     </Modal>
   )
@@ -254,25 +264,53 @@ function SubmissionModal({ entry, onClose, onSaved }) {
 function Database() {
   const qc = useQueryClient()
   const toast = useToast()
+  const { hasRole } = useAuth()
+  const isAdmin = hasRole('admin')
+
+  const [areaInput, setAreaInput] = useState('')
+  const [area, setArea] = useState('')          // the area actually searched
+  const [showAll, setShowAll] = useState(false) // admin-only override
   const [q, setQ] = useState('')
-  const [refFilter, setRefFilter] = useState('')
   const [editing, setEditing] = useState(null)
   const [pickingId, setPickingId] = useState(null)
 
-  const { data: candidates, isLoading } = useQuery({
-    queryKey: ['candidates'],
+  // areas HR may search — names only, no candidate rows
+  const { data: areas = [] } = useQuery({
+    queryKey: ['candidate-areas'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('candidates').select('*').order('created_at', { ascending: false }).limit(3000)
+      const { data, error } = await supabase.rpc('candidate_areas')
       if (error) throw error
-      return data
+      return (data || []).map((r) => (typeof r === 'string' ? r : r.area ?? r.candidate_areas)).filter(Boolean)
     },
   })
 
-  const referrers = useMemo(() => [...new Set((candidates || []).map((c) => c.referred_by_name).filter(Boolean))].sort(), [candidates])
+  // Everyone searches by area. Admins can deliberately open the whole DB.
+  const full = isAdmin && showAll
+  const { data: candidates, isLoading, isFetching } = useQuery({
+    queryKey: ['candidates', full ? 'all' : area],
+    enabled: full || !!area,
+    queryFn: async () => {
+      if (full) {
+        const { data, error } = await supabase.from('candidates').select('*').order('created_at', { ascending: false }).limit(3000)
+        if (error) throw error
+        return data
+      }
+      const { data, error } = await supabase.rpc('search_candidates', { p_area: area })
+      if (error) throw error
+      return data || []
+    },
+  })
+
+  const search = (value) => {
+    const v = (value ?? areaInput).trim()
+    if (v.length < 2) return toast('Type at least 2 characters of an area', 'error')
+    setShowAll(false)
+    setAreaInput(v)
+    setArea(v)
+  }
 
   const filtered = useMemo(() => {
     let list = candidates || []
-    if (refFilter) list = list.filter((c) => c.referred_by_name === refFilter)
     if (q.trim()) {
       const n = q.trim().toLowerCase()
       list = list.filter((c) =>
@@ -281,21 +319,26 @@ function Database() {
       )
     }
     return list
-  }, [candidates, q, refFilter])
+  }, [candidates, q])
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ['candidates'] })
+
+  const saveComment = async (c, hr_comment) => {
+    const next = hr_comment.trim() || null
+    if ((c.hr_comment || null) === next) return
+    const { error } = await supabase.rpc('save_candidate', { p_id: c.id, p_patch: { hr_comment: next } })
+    if (error) return toast(error.message, 'error')
+    qc.setQueryData(['candidates', full ? 'all' : area], (old) =>
+      (old || []).map((x) => (x.id === c.id ? { ...x, hr_comment: next } : x)))
+    toast('Comment saved')
+  }
 
   const addToProspectives = async (c) => {
     setPickingId(c.id)
     try {
-      const { data: pros, error } = await supabase
-        .from('prospectives')
-        .insert({ full_name: c.full_name, designation: c.designation, area: c.area, contact: c.phone, status: 'new', candidate_id: c.id, source: c.referrer_emp_id ? 'Internal Referral' : 'Other' })
-        .select('id')
-        .single()
+      const { error } = await supabase.rpc('pick_candidate', { p_id: c.id })
       if (error) throw error
-      const { error: e2 } = await supabase.from('candidates')
-        .update({ picked_at: new Date().toISOString(), prospective_id: pros.id }).eq('id', c.id)
-      if (e2) throw e2
-      qc.invalidateQueries({ queryKey: ['candidates'] })
+      refresh()
       qc.invalidateQueries({ queryKey: ['prospectives'] })
       toast(`${c.full_name.split(' ')[0]} added to Prospectives`)
     } catch (e) {
@@ -305,25 +348,85 @@ function Database() {
     }
   }
 
-  if (isLoading) return <FullPageSpinner />
-
   return (
     <div>
+      {!full && (
+        <Card className="mb-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <Field label="Search an area" className="min-w-64 flex-1"
+              hint="The database opens one area at a time — it is never listed in full.">
+              <div className="flex gap-2">
+                <Input
+                  list="candidate-areas"
+                  value={areaInput}
+                  placeholder="e.g. Ludhiana"
+                  onChange={(e) => setAreaInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && search()}
+                />
+                <Button icon={Search} onClick={() => search()} loading={isFetching}>Search</Button>
+              </div>
+            </Field>
+            <datalist id="candidate-areas">
+              {areas.map((a) => <option key={a} value={a} />)}
+            </datalist>
+          </div>
+          {isAdmin && (
+            <p className="mt-3 text-xs text-slate-400">
+              You're an admin —{' '}
+              <button className="font-medium text-indigo-600 hover:underline" onClick={() => { setShowAll(true); setArea('') }}>
+                open the full database
+              </button>{' '}
+              if you need the whole list. HR accounts can only pull one area at a time.
+            </p>
+          )}
+          {areas.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-slate-400">Areas on file:</span>
+              {areas.slice(0, 12).map((a) => (
+                <button key={a}
+                  className={cx('rounded-full border px-2.5 py-0.5 text-xs transition-colors',
+                    a === area ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600')}
+                  onClick={() => { setAreaInput(a); search(a) }}>
+                  {a}
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {full && (
+        <Card className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-slate-600">
+              <ShieldCheck className="mr-1.5 inline h-4 w-4 text-indigo-500" />
+              Full database open — admin view.
+            </p>
+            <Button variant="secondary" size="xs" icon={Search} onClick={() => setShowAll(false)}>Back to area search</Button>
+          </div>
+        </Card>
+      )}
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Select className="w-56" value={refFilter} onChange={(e) => setRefFilter(e.target.value)}>
-            <option value="">All referrers</option>
-            {referrers.map((r) => <option key={r}>{r}</option>)}
-          </Select>
-          <SearchInput value={q} onChange={setQ} placeholder="Search name, company, area, referrer…" className="w-72" />
+          <SearchInput value={q} onChange={setQ} placeholder="Filter these results…" className="w-72" />
+          {area && !full && <Badge tone="indigo">{filtered.length} in “{area}”</Badge>}
         </div>
         <Button icon={Plus} onClick={() => setEditing('new')}>Add candidate</Button>
       </div>
 
-      {!filtered.length ? (
+      {isLoading ? (
+        <FullPageSpinner />
+      ) : !full && !area ? (
+        <EmptyState
+          icon={ShieldCheck}
+          title="Search an area to open the database"
+          hint="Candidate records are pulled one area at a time — nobody can browse or export the whole pool."
+        />
+      ) : !filtered.length ? (
         <EmptyState
           icon={Briefcase}
-          title={q || refFilter ? 'No matches' : 'No candidates yet'}
+          title={q ? 'No matches' : area ? `No candidates in “${area}”` : 'No candidates yet'}
           hint="Share a referral link (Referral links tab) — sources and employees can submit several candidates at once."
           action={!q && <Button icon={Plus} onClick={() => setEditing('new')}>Add candidate</Button>}
         />
@@ -347,10 +450,8 @@ function Database() {
                 <Td>{c.area || '—'}</Td>
                 <Td>{c.designation || '—'}</Td>
                 <Td>{c.current_company || '—'}</Td>
-                <Td className="text-slate-500">{c.phone || '—'}</Td>
-                <Td className="max-w-52">
-                  <span className="line-clamp-2 text-xs text-slate-500">{c.hr_comment || '—'}</span>
-                </Td>
+                <Td className="whitespace-nowrap text-slate-500">{c.phone ? fmtMobile(c.phone) : '—'}</Td>
+                <Td className="max-w-64"><CommentCell value={c.hr_comment} onSave={(v) => saveComment(c, v)} /></Td>
                 <Td className="text-xs text-slate-400">{fmtDate(c.created_at)}</Td>
                 <Td right>
                   {c.prospective_id ? (
@@ -367,14 +468,51 @@ function Database() {
         </Table>
       )}
 
-      {editing && <CandidateModal candidate={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {editing && <CandidateModal candidate={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={refresh} />}
     </div>
+  )
+}
+
+/** HR comment, edited in place: click the cell, type, Enter or blur to save. */
+function CommentCell({ value, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value || '')
+
+  if (!editing) {
+    return (
+      <button
+        className="group flex w-full items-start gap-1.5 text-left"
+        onClick={() => { setDraft(value || ''); setEditing(true) }}
+      >
+        <span className={cx('line-clamp-2 text-xs', value ? 'text-slate-600' : 'text-slate-300 italic')}>
+          {value || 'Add a comment'}
+        </span>
+        <Pencil className="mt-0.5 h-3 w-3 shrink-0 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100" />
+      </button>
+    )
+  }
+
+  const commit = () => { setEditing(false); onSave(draft) }
+
+  return (
+    <Textarea
+      autoFocus
+      rows={2}
+      className="text-xs"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commit() }
+        if (e.key === 'Escape') setEditing(false)
+      }}
+    />
   )
 }
 
 const EMPTY = { referred_by_name: '', referrer_emp_id: '', full_name: '', area: '', designation: '', current_company: '', phone: '', hr_comment: '' }
 
-function CandidateModal({ candidate, onClose }) {
+function CandidateModal({ candidate, onClose, onSaved }) {
   const qc = useQueryClient()
   const toast = useToast()
   const [form, setForm] = useState(candidate ? { ...EMPTY, ...Object.fromEntries(Object.keys(EMPTY).map((k) => [k, candidate[k] ?? ''])) } : EMPTY)
@@ -383,17 +521,15 @@ function CandidateModal({ candidate, onClose }) {
 
   const save = async () => {
     if (!form.full_name.trim()) return toast('Candidate name is required', 'error')
+    if (form.phone && !isMobile(form.phone)) return toast(`Phone: ${MOBILE_HINT}`, 'error')
     setSaving(true)
     try {
-      const payload = { ...form }
+      const payload = { ...form, phone: normalizeMobile(form.phone) }
       for (const k of Object.keys(payload)) if (payload[k] === '') payload[k] = null
-      if (!candidate && !payload.source) payload.source = 'Manual entry'
-      const qy = candidate
-        ? supabase.from('candidates').update(payload).eq('id', candidate.id)
-        : supabase.from('candidates').insert(payload)
-      const { error } = await qy
+      const { error } = await supabase.rpc('save_candidate', { p_id: candidate?.id ?? null, p_patch: payload })
       if (error) throw error
       qc.invalidateQueries({ queryKey: ['candidates'] })
+      onSaved?.()
       toast('Saved')
       onClose()
     } catch (e) {
@@ -405,7 +541,7 @@ function CandidateModal({ candidate, onClose }) {
 
   const remove = async () => {
     if (!window.confirm(`Remove ${candidate.full_name} from the database?`)) return
-    const { error } = await supabase.from('candidates').delete().eq('id', candidate.id)
+    const { error } = await supabase.rpc('delete_candidate', { p_id: candidate.id })
     if (error) return toast(error.message, 'error')
     qc.invalidateQueries({ queryKey: ['candidates'] })
     onClose()
@@ -428,7 +564,13 @@ function CandidateModal({ candidate, onClose }) {
         <Field label="Area"><Input value={form.area} onChange={set('area')} /></Field>
         <Field label="Designation"><Input value={form.designation} onChange={set('designation')} /></Field>
         <Field label="Current company"><Input value={form.current_company} onChange={set('current_company')} /></Field>
-        <Field label="Phone number"><Input value={form.phone} onChange={set('phone')} /></Field>
+        <Field label="Phone number" hint={MOBILE_HINT}>
+          <div className="flex">
+            <span className="inline-flex items-center rounded-l-lg border border-r-0 border-slate-300 bg-slate-100 px-2.5 text-sm text-slate-500">+91</span>
+            <Input className="rounded-l-none" inputMode="numeric" placeholder="98765 43210"
+              value={mobileInput(form.phone)} onChange={(e) => setForm((f) => ({ ...f, phone: mobileInput(e.target.value) }))} />
+          </div>
+        </Field>
         <Field label="HR comment" className="sm:col-span-2"><Textarea value={form.hr_comment} onChange={set('hr_comment')} /></Field>
       </div>
     </Modal>
@@ -436,6 +578,16 @@ function CandidateModal({ candidate, onClose }) {
 }
 
 /* ================= referral links ================= */
+
+const expired = (l) => !!l.expires_at && new Date(l.expires_at) < new Date()
+
+function expiryLabel(l) {
+  if (!l.expires_at) return 'no expiry'
+  const days = Math.ceil((new Date(l.expires_at) - Date.now()) / 86400000)
+  if (days < 0) return `expired ${fmtDate(l.expires_at)}`
+  if (days === 0) return 'expires today'
+  return `in ${days} day${days === 1 ? '' : 's'}`
+}
 
 function ReferralLinks() {
   const qc = useQueryClient()
@@ -473,7 +625,7 @@ function ReferralLinks() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-600">
             One link per source — a consultant, a campus cell, or your own sales team. The form asks for their details once,
-            then lets them add several candidates in a table. Everything lands here, tagged with who referred whom.
+            then lets them add several candidates in a table. Every link stops working after 7 days — make a new one when you need it again.
           </p>
           <Button icon={Link2} onClick={() => setCreating(true)}>New referral link</Button>
         </div>
@@ -484,22 +636,34 @@ function ReferralLinks() {
       ) : (
         <Table>
           <thead>
-            <tr><Th>Source</Th><Th>Form</Th><Th>Submissions</Th><Th>Status</Th><Th>Created</Th><Th /></tr>
+            <tr><Th>Source</Th><Th>Referrer</Th><Th>Submissions</Th><Th>Status</Th><Th>Expires</Th><Th /></tr>
           </thead>
           <tbody>
             {links.map((l) => (
               <Tr key={l.id}>
                 <Td className="font-medium text-slate-900">{l.source_name}</Td>
                 <Td className="text-slate-500">
-                  {l.form_templates?.name}
-                  {l.form_templates?.kind === 'referral' && <Badge tone="indigo" className="ml-1.5">referral</Badge>}
+                  {l.referrer_name ? (
+                    <>
+                      {l.referrer_name}
+                      {l.referrer_emp_id && <span className="ml-1.5 text-xs text-slate-400">{l.referrer_emp_id}</span>}
+                    </>
+                  ) : (
+                    <span className="text-slate-300">they fill it in</span>
+                  )}
                 </Td>
                 <Td><span className="font-semibold text-slate-800">{l.submission_count}</span></Td>
-                <Td>{l.active ? <Badge tone="green">Active</Badge> : <Badge tone="gray">Disabled</Badge>}</Td>
-                <Td className="text-xs text-slate-400">{fmtDateTime(l.created_at)}</Td>
+                <Td>
+                  {expired(l) ? <Badge tone="gray">Expired</Badge>
+                    : l.active ? <Badge tone="green">Active</Badge>
+                    : <Badge tone="gray">Disabled</Badge>}
+                </Td>
+                <Td className="whitespace-nowrap text-xs text-slate-400">
+                  <Clock className="mr-1 inline h-3 w-3" />{expiryLabel(l)}
+                </Td>
                 <Td right>
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="xs" icon={Copy} onClick={() => copy(l)}>Copy link</Button>
+                    {!expired(l) && <Button variant="ghost" size="xs" icon={Copy} onClick={() => copy(l)}>Copy link</Button>}
                     <Button variant="ghost" size="xs" icon={Ban} onClick={() => toggle(l)}>{l.active ? 'Disable' : 'Enable'}</Button>
                   </div>
                 </Td>
@@ -519,6 +683,7 @@ function NewLinkModal({ onClose }) {
   const toast = useToast()
   const [formId, setFormId] = useState('')
   const [sourceName, setSourceName] = useState('')
+  const [personId, setPersonId] = useState('')
   const [created, setCreated] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -530,17 +695,37 @@ function NewLinkModal({ onClose }) {
     },
   })
 
+  // sales employees, so a link can be issued to one of them by name
+  const { data: people = [] } = useQuery({
+    queryKey: ['people-for-links'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('people').select('id, full_name, emp_code, phone')
+        .eq('status', 'active').order('full_name')
+      return data || []
+    },
+  })
+
+  const person = people.find((p) => p.id === personId) || null
+
   const referral = forms.filter((f) => f.kind === 'referral')
   const effectiveFormId = formId || referral[0]?.id || forms[0]?.id || ''
 
   const create = async () => {
     if (!effectiveFormId) return toast('No active referral form found — ask the admin to check Settings → Forms', 'error')
-    if (!sourceName.trim()) return toast('Name the source (e.g. "Sales team — Punjab")', 'error')
+    const label = sourceName.trim() || person?.full_name || ''
+    if (!label) return toast('Name the source (e.g. "Sales team — Punjab")', 'error')
     setSaving(true)
     try {
       const { data, error } = await supabase
         .from('form_links')
-        .insert({ form_id: effectiveFormId, source_name: sourceName.trim() })
+        .insert({
+          form_id: effectiveFormId,
+          source_name: label,
+          referrer_name: person?.full_name ?? null,
+          referrer_emp_id: person?.emp_code ?? null,
+          referrer_phone: person ? normalizeMobile(person.phone) : null,
+        })
         .select('token')
         .single()
       if (error) throw error
@@ -560,7 +745,9 @@ function NewLinkModal({ onClose }) {
         : <><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={create} loading={saving}>Create link</Button></>}>
       {created ? (
         <div className="space-y-3">
-          <p className="text-sm text-slate-600">Share this with <span className="font-medium">{sourceName}</span> — no login needed:</p>
+          <p className="text-sm text-slate-600">
+            Share this with <span className="font-medium">{sourceName || person?.full_name}</span> — no login needed. It expires in 7 days.
+          </p>
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <code className="min-w-0 flex-1 truncate text-xs text-slate-700">{created}</code>
             <Button size="xs" variant="secondary" icon={Copy} onClick={async () => { await navigator.clipboard.writeText(created); toast('Copied') }}>Copy</Button>
@@ -568,14 +755,26 @@ function NewLinkModal({ onClose }) {
         </div>
       ) : (
         <div className="space-y-4">
-          <Field label="Source name" required hint="Tags every candidate they submit">
-            <Input value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder="e.g. Sales team — Punjab / Consultant Ramesh" autoFocus />
+          <Field label="Issue to an employee" hint="Their name and EMP ID are then filled in on the form — they only add candidates.">
+            <Select value={personId} onChange={(e) => setPersonId(e.target.value)}>
+              <option value="">Nobody in particular — the referrer types their own details</option>
+              {people.map((p) => (
+                <option key={p.id} value={p.id}>{p.full_name}{p.emp_code ? ` · ${p.emp_code}` : ''}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Source name" required={!person} hint="Tags every candidate they submit">
+            <Input value={sourceName} onChange={(e) => setSourceName(e.target.value)}
+              placeholder={person ? person.full_name : 'e.g. Sales team — Punjab / Consultant Ramesh'} autoFocus />
           </Field>
           <Field label="Form">
             <Select value={effectiveFormId} onChange={(e) => setFormId(e.target.value)}>
               {forms.map((f) => <option key={f.id} value={f.id}>{f.name}{f.kind === 'referral' ? ' (referral)' : ''}</option>)}
             </Select>
           </Field>
+          <p className="flex items-center gap-1.5 text-xs text-slate-400">
+            <Clock className="h-3.5 w-3.5" /> The link stops working automatically 7 days from now.
+          </p>
         </div>
       )}
     </Modal>

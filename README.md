@@ -53,7 +53,7 @@ Never set `VITE_DEMO` on the real deployment.
    first sign-in.
 3. Run the migrations, either way:
    - **Dashboard**: SQL Editor → paste and run `0001_core.sql`, `0002_hr.sql`,
-     `0003_purchase.sql`, … through `0007_sales_employees.sql` **in order** (or paste the
+     `0003_purchase.sql`, … through `0010_referral_rules.sql` **in order** (or paste the
      combined `supabase/makams-ops-schema.sql` once).
    - **CLI**: `supabase link --project-ref <ref>` then `supabase db push`.
 
@@ -195,14 +195,24 @@ set — you can go live without them and add them later.
   Contact, Status (New → Contacted → Interested → Interview Scheduled → Offer Letter
   Sent → Joined, plus Rejected), with status/area filters and inline status changes.
 - **Candidates DB & referral links**: the raw referral pool. HR creates one link per
-  source (Candidates DB → Referral links); the public form takes the referrer's details
-  once (name, EMP ID if an employee, phone) then a table of candidates (name,
-  designation, area, current company, phone). Submitted rows land in a **review queue**
+  source (Candidates DB → Referral links) and can **issue a link to a specific
+  employee** — their name and EMP ID are then filled in and locked on the form, so the
+  referrer only adds candidates. Every link **expires 7 days** after it is created.
+  The public form takes the referrer's details once, then a table of candidates where
+  **name, phone, designation, area and current company are all required**, and phone
+  must be an Indian mobile — it is stored canonically as `+91XXXXXXXXXX` (validated in
+  the browser *and* in the edge function). Submitted rows land in a **review queue**
   (Candidates → Submissions tab), where HR edits each entry and approves it into the
-  DB (or rejects it) — nothing enters the Candidates DB unreviewed. Approved rows are
-  tagged with Referred-by; HR adds comments and pushes good ones to Prospectives with
-  one click (the row is then flagged "In Prospectives"). Nothing here auto-creates
-  employees.
+  DB (or rejects it) — nothing enters the Candidates DB unreviewed. HR comments are
+  edited inline in the table, and good candidates go to Prospectives with one click.
+  Nothing here auto-creates employees.
+- **Candidate DB access**: the database cannot be browsed or exported in bulk. HR
+  searches an **area** and gets only the rows for that area; admins can deliberately
+  open the full list. This is enforced by RLS — the `candidates` table has no SELECT
+  policy for HR at all, reads go through `search_candidates(area)`, and writes go
+  through `save_candidate` / `pick_candidate` / `delete_candidate`. An HR user with
+  the anon key and a REST client sees exactly what the UI shows them: nothing, until
+  they name an area.
 - **Forms**: admin-only builder, jotform-style — add fields (text, paragraph, email,
   phone, number, date, dropdown, file), mark required, reorder, live preview.
   Candidate-intake forms map fields into the candidate database; general forms just
