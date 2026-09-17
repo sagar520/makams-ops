@@ -84,14 +84,20 @@ console.log('PASS  prospective status changed inline')
   else { failed++; console.log('FAIL  last-updated column') }
 }
 {
-  // resume: seeded row shows a clip, and the modal offers an upload
-  const clip = await page.locator('tr', { hasText: 'Ankit Malhotra' }).locator('button[title]').count()
-  if (clip > 0) console.log('PASS  resume shown on the sheet')
-  else { failed++; console.log('FAIL  resume not shown on the sheet') }
-  await page.click('button:has-text("Jaspreet Brar")')
+  // explicit per-row actions: View resume / Add resume, and Edit
+  const withResume = page.locator('tr', { hasText: 'Ankit Malhotra' })
+  if (await withResume.locator('button:has-text("Resume")').count()) console.log('PASS  Resume button on rows that have one')
+  else { failed++; console.log('FAIL  Resume button missing') }
+
+  const without = page.locator('tr', { hasText: 'Jaspreet Brar' })
+  if (await without.locator('button:has-text("Add resume")').count()) console.log('PASS  Add-resume button on rows without one')
+  else { failed++; console.log('FAIL  Add-resume button missing') }
+
+  await without.locator('button:has-text("Edit")').click()
   await page.waitForSelector('text=Attach a resume', { timeout: 8000 })
-  console.log('PASS  resume upload offered in the modal')
+  console.log('PASS  Edit opens the details modal with the resume field')
   await page.keyboard.press('Escape')
+  await page.waitForTimeout(400)
 }
 {
   // source column + filter

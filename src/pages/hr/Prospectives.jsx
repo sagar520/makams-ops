@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, ClipboardList, Trash2, Paperclip, Upload, X } from 'lucide-react'
+import { Plus, ClipboardList, Trash2, Paperclip, Upload, X, Pencil, FileText } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
   PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, Select, Input,
@@ -17,6 +17,7 @@ export default function Prospectives() {
   const [areaFilter, setAreaFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
   const [editing, setEditing] = useState(null) // 'new' | row
+  const [opening, setOpening] = useState(null)
 
   const { data: rows, isLoading } = useQuery({
     queryKey: ['prospectives'],
@@ -52,9 +53,16 @@ export default function Prospectives() {
   }, [rows, statusFilter, areaFilter, sourceFilter, q])
 
   const openResume = async (row) => {
-    const { data, error } = await supabase.storage.from('prospective-resumes').createSignedUrl(row.resume_path, 300)
-    if (error) return toast(error.message, 'error')
-    window.open(data.signedUrl, '_blank', 'noopener')
+    setOpening(row.id)
+    try {
+      const { data, error } = await supabase.storage.from('prospective-resumes').createSignedUrl(row.resume_path, 300)
+      if (error) throw error
+      window.open(data.signedUrl, '_blank', 'noopener')
+    } catch (e) {
+      toast(e.message, 'error')
+    } finally {
+      setOpening(null)
+    }
   }
 
   const setStatus = async (row, status) => {
@@ -103,19 +111,13 @@ export default function Prospectives() {
       ) : (
         <Table>
           <thead>
-            <tr><Th>Name</Th><Th>Designation</Th><Th>Area</Th><Th>Contact</Th><Th>Source</Th><Th>Status</Th><Th>Last updated</Th></tr>
+            <tr><Th>Name</Th><Th>Designation</Th><Th>Area</Th><Th>Contact</Th><Th>Source</Th><Th>Status</Th><Th>Last updated</Th><Th /></tr>
           </thead>
           <tbody>
             {filtered.map((r) => (
               <Tr key={r.id}>
                 <Td className="font-medium text-slate-900">
                   <button className="hover:text-indigo-600" onClick={() => setEditing(r)}>{r.full_name}</button>
-                  {r.resume_path && (
-                    <button className="ml-1.5 align-middle text-slate-400 hover:text-indigo-600" title={r.resume_name || 'Resume'}
-                      onClick={() => openResume(r)}>
-                      <Paperclip className="inline h-3.5 w-3.5" />
-                    </button>
-                  )}
                   {r.candidate_id && <Badge tone="slate" className="ml-2">from DB</Badge>}
                 </Td>
                 <Td>{r.designation || '—'}</Td>
@@ -132,6 +134,18 @@ export default function Prospectives() {
                   </Select>
                 </Td>
                 <Td className="text-xs text-slate-400">{fmtDate(r.updated_at || r.created_at)}</Td>
+                <Td right>
+                  <div className="flex justify-end gap-1">
+                    {r.resume_path ? (
+                      <Button variant="secondary" size="xs" icon={FileText} loading={opening === r.id} onClick={() => openResume(r)}>
+                        Resume
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" size="xs" icon={Upload} onClick={() => setEditing(r)}>Add resume</Button>
+                    )}
+                    <Button variant="ghost" size="xs" icon={Pencil} onClick={() => setEditing(r)}>Edit</Button>
+                  </div>
+                </Td>
               </Tr>
             ))}
           </tbody>
