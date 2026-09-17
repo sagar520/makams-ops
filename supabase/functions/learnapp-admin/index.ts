@@ -1,18 +1,19 @@
 // Manage user accounts in the CRIL learnapp (a separate Supabase project)
-// from the ops app: invite, create-with-password, disable, enable.
+// from the ops app. Mirrors the learnapp's own create-user function:
+//   * login = Employee ID; auth email is synthesized as <empid>@<domain>
+//   * a matching row goes into the learnapp's `profiles` table
 //
 // Secrets required:
 //   LEARNAPP_URL               — the learnapp project URL (https://xxxx.supabase.co)
 //   LEARNAPP_SERVICE_ROLE_KEY  — that project's service_role key
-//
-// NOTE: if the learnapp expects a row in its own profiles/users table for each
-// auth user, add that insert where marked "LEARNAPP PROFILE HOOK" below.
+//   LEARNAPP_EMAIL_DOMAIN      — optional; default "example.com" (must match the
+//                                learnapp frontend's EMAIL_DOMAIN in src/supabase.js)
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders, json, serviceClient, requireRole } from '../_shared/utils.ts'
 
-function randomPassword(len = 12): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$%'
+function randomPassword(len = 10): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
   const bytes = crypto.getRandomValues(new Uint8Array(len))
   return Array.from(bytes, (b) => chars[b % chars.length]).join('')
 }
@@ -31,6 +32,7 @@ Deno.serve(async (req) => {
 
   const url = Deno.env.get('LEARNAPP_URL')
   const key = Deno.env.get('LEARNAPP_SERVICE_ROLE_KEY')
+  const domain = Deno.env.get('LEARNAPP_EMAIL_DOMAIN') || 'example.com'
   if (!url || !key) {
     return json({ error: 'Learnapp is not connected yet: set LEARNAPP_URL and LEARNAPP_SERVICE_ROLE_KEY secrets (see README)' }, 500)
   }
@@ -41,7 +43,7 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'Bad request' }, 400)
   }
-  const { action, person_id, email, full_name } = body
+  const { action, person_id } = body
   if (!action || !person_id) return json({ error: 'Missing fields' }, 400)
 
   const { data: person } = await svc.from('people').select('*').eq('id', person_id).maybeSingle()
@@ -51,54 +53,53 @@ Deno.serve(async (req) => {
 
   const logIt = async (status: 'ok' | 'error', detail: string) => {
     await svc.from('learnapp_actions').insert({
-      person_id, action: action === 'create' ? 'create' : action, status, detail: detail.slice(0, 500), created_by: appUser.id,
+      person_id, action, status, detail: detail.slice(0, 500), created_by: appUser.id,
     })
   }
 
   try {
-    if (action === 'invite' || action === 'create') {
-      const targetEmail = (email || person.work_email || person.personal_email || '').trim().toLowerCase()
-      if (!targetEmail) return json({ error: 'No email on file for this person' }, 400)
+    if (action === 'create') {
+      const empId = (person.emp_code || '').trim()
+      if (!empId) return json({ error: 'Set an Employee ID first — it becomes their learnapp login' }, 400)
       if (person.learnapp_user_id) return json({ error: 'They already have a learnapp account' }, 400)
 
-      let userId: string
-      let password: string | undefined
+      // same employee_id must not already exist in the learnapp
+      const { data: existing } = await learn.from('profiles').select('id').eq('employee_id', empId).maybeSingle()
+      if (existing) return json({ error: `Employee ID ${empId} already exists in the learnapp` }, 400)
 
-      if (action === 'invite') {
-        const { data, error } = await learn.auth.admin.inviteUserByEmail(targetEmail, {
-          data: { full_name: full_name || person.full_name },
-        })
-        if (error) throw new Error(error.message)
-        userId = data.user.id
-      } else {
-        password = randomPassword()
-        const { data, error } = await learn.auth.admin.createUser({
-          email: targetEmail,
-          password,
-          email_confirm: true,
-          user_metadata: { full_name: full_name || person.full_name },
-        })
-        if (error) throw new Error(error.message)
-        userId = data.user.id
+      const password = randomPassword()
+      const loginEmail = `${empId.toLowerCase()}@${domain}`
+
+      const { data: created, error } = await learn.auth.admin.createUser({
+        email: loginEmail,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: person.full_name },
+      })
+      if (error) throw new Error(error.message)
+      const userId = created.user.id
+
+      const { error: profErr } = await learn.from('profiles').insert({
+        id: userId,
+        employee_id: empId,
+        name: person.full_name,
+        role: 'sales',
+        active: true,
+        email: person.personal_email || person.work_email || null,
+      })
+      if (profErr) {
+        await learn.auth.admin.deleteUser(userId).catch(() => {})
+        throw new Error(`learnapp profile insert failed: ${profErr.message}`)
       }
-
-      // ---- LEARNAPP PROFILE HOOK ----------------------------------------
-      // If the learnapp needs a row in its own table for each user, add it here, e.g.:
-      // await learn.from('profiles').insert({ id: userId, full_name: person.full_name, role: 'learner' })
-      // --------------------------------------------------------------------
 
       await svc.from('people').update({
         learnapp_user_id: userId,
-        learnapp_email: targetEmail,
+        learnapp_email: loginEmail,
         learnapp_status: 'active',
       }).eq('id', person_id)
 
-      await logIt('ok', `${targetEmail} (${userId})`)
-      return json({
-        ok: true,
-        message: action === 'invite' ? `Invite email sent to ${targetEmail}` : `Account created for ${targetEmail}`,
-        ...(password ? { password } : {}),
-      })
+      await logIt('ok', `${empId} (${userId})`)
+      return json({ ok: true, message: `Learnapp login created — ID: ${empId}`, password })
     }
 
     if (action === 'disable' || action === 'enable') {
@@ -107,12 +108,13 @@ Deno.serve(async (req) => {
         ban_duration: action === 'disable' ? '876000h' : 'none',
       })
       if (error) throw new Error(error.message)
+      await learn.from('profiles').update({ active: action === 'enable' }).eq('id', person.learnapp_user_id)
 
       await svc.from('people').update({
         learnapp_status: action === 'disable' ? 'disabled' : 'active',
       }).eq('id', person_id)
 
-      await logIt('ok', person.learnapp_email || '')
+      await logIt('ok', person.emp_code || '')
       return json({ ok: true, message: action === 'disable' ? 'Learnapp access disabled' : 'Learnapp access re-enabled' })
     }
 

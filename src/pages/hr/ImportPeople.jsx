@@ -11,9 +11,10 @@ const TARGETS = [
   { value: 'full_name', label: 'Full name', aliases: ['name', 'fullname', 'employeename', 'empname'] },
   { value: 'emp_code', label: 'Employee code', aliases: ['empcode', 'employeeid', 'empid', 'code', 'id'] },
   { value: 'status', label: 'Status', aliases: ['status', 'employmentstatus'] },
-  { value: 'department', label: 'Department', aliases: ['department', 'dept'] },
-  { value: 'designation', label: 'Designation', aliases: ['designation', 'role', 'position', 'title'] },
-  { value: 'location', label: 'Work location', aliases: ['location', 'branch', 'site'] },
+  { value: 'sales_role', label: 'Level (Sales/ASM/RSM/HO)', aliases: ['level', 'role', 'designation', 'position'] },
+  { value: 'hq_name', label: 'HQ', aliases: ['hq', 'hqname', 'headquarter', 'headquarters', 'territory', 'location', 'branch'] },
+  { value: 'asm_name', label: 'ASM name', aliases: ['asm', 'asmname', 'areasalesmanager'] },
+  { value: 'rsm_name', label: 'RSM name', aliases: ['rsm', 'rsmname', 'regionalsalesmanager'] },
   { value: 'employment_type', label: 'Employment type', aliases: ['employmenttype', 'type'] },
   { value: 'date_of_join', label: 'Date of joining', aliases: ['doj', 'dateofjoining', 'joiningdate', 'joined'] },
   { value: 'date_of_exit', label: 'Date of exit', aliases: ['doe', 'dateofexit', 'exitdate', 'lwd', 'lastworkingday'] },
@@ -119,6 +120,13 @@ export default function ImportPeople() {
       if (!v) continue
       if (target === 'date_of_join' || target === 'date_of_exit' || target === 'date_of_birth') v = parseDateCell(v)
       else if (target === 'status') v = mapStatus(v)
+      else if (target === 'sales_role') {
+        const s = norm(v)
+        v = s.includes('rsm') || s.includes('regional') ? 'rsm'
+          : s.includes('asm') || s.includes('areasales') ? 'asm'
+          : s.includes('head') || s === 'ho' ? 'head_office'
+          : 'sales'
+      }
       else if (target === 'monthly_gross') v = Number(String(v).replace(/[^\d.]/g, '')) || null
       else if (target === 'employment_type') {
         const s = norm(v)

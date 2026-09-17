@@ -1,80 +1,89 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Briefcase, Link2, Copy, Ban, FileText, Trash2, Upload } from 'lucide-react'
+import { Plus, Briefcase, Link2, Copy, Ban, Trash2, ClipboardList, Check } from 'lucide-react'
 import { supabase, formUrl } from '../../lib/supabase'
 import {
   PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, Select, Input, Textarea,
   Field, Modal, EmptyState, FullPageSpinner, Card, useToast,
 } from '../../components/ui'
-import { CANDIDATE_STATUS, candidateStatusMeta } from '../../lib/constants'
 import { fmtDate, fmtDateTime } from '../../lib/format'
 
 export default function Candidates() {
-  const [tab, setTab] = useState('pipeline')
+  const [tab, setTab] = useState('db')
   return (
     <div>
       <PageHeader
-        title="Candidates"
-        sub="Everyone in the talent pool — sourced via links, referrals, or added by hand. Separate from employees."
+        title="Candidates DB"
+        sub="The referral database — everyone recommended to Makams, whoever sent them. Push the good ones to Prospectives."
       />
       <Tabs
         className="mb-5 w-fit"
         tabs={[
-          { value: 'pipeline', label: 'Candidate database' },
-          { value: 'links', label: 'Sources & links' },
+          { value: 'db', label: 'Database' },
+          { value: 'links', label: 'Referral links' },
         ]}
         value={tab}
         onChange={setTab}
       />
-      {tab === 'pipeline' ? <Pipeline /> : <SourceLinks />}
+      {tab === 'db' ? <Database /> : <ReferralLinks />}
     </div>
   )
 }
 
-/* ================= candidate database ================= */
+/* ================= database ================= */
 
-function Pipeline() {
+function Database() {
   const qc = useQueryClient()
   const toast = useToast()
   const [q, setQ] = useState('')
-  const [statusFilter, setStatusFilter] = useState('open')
-  const [editing, setEditing] = useState(null) // 'new' | candidate
+  const [refFilter, setRefFilter] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [pickingId, setPickingId] = useState(null)
 
   const { data: candidates, isLoading } = useQuery({
     queryKey: ['candidates'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('candidates').select('*').order('created_at', { ascending: false }).limit(2000)
+      const { data, error } = await supabase.from('candidates').select('*').order('created_at', { ascending: false }).limit(3000)
       if (error) throw error
       return data
     },
   })
 
+  const referrers = useMemo(() => [...new Set((candidates || []).map((c) => c.referred_by_name).filter(Boolean))].sort(), [candidates])
+
   const filtered = useMemo(() => {
     let list = candidates || []
-    if (statusFilter === 'open') list = list.filter((c) => !['hired', 'rejected'].includes(c.status))
-    else if (statusFilter !== 'all') list = list.filter((c) => c.status === statusFilter)
+    if (refFilter) list = list.filter((c) => c.referred_by_name === refFilter)
     if (q.trim()) {
       const n = q.trim().toLowerCase()
       list = list.filter((c) =>
-        [c.full_name, c.title, c.organization, c.email, c.phone, c.location, c.source]
-          .filter(Boolean).some((v) => v.toLowerCase().includes(n))
+        [c.full_name, c.designation, c.area, c.current_company, c.phone, c.referred_by_name, c.referrer_emp_id, c.hr_comment]
+          .filter(Boolean).some((v) => String(v).toLowerCase().includes(n))
       )
     }
     return list
-  }, [candidates, q, statusFilter])
+  }, [candidates, q, refFilter])
 
-  const setStatus = async (c, status) => {
-    const { error } = await supabase.from('candidates').update({ status }).eq('id', c.id)
-    if (error) return toast(error.message, 'error')
-    qc.invalidateQueries({ queryKey: ['candidates'] })
-    toast(`${c.full_name.split(' ')[0]} → ${candidateStatusMeta(status).label}`)
-  }
-
-  const viewResume = async (c) => {
-    if (!c.resume_path) return
-    const { data, error } = await supabase.storage.from('form-uploads').createSignedUrl(c.resume_path, 300)
-    if (error) return toast(error.message, 'error')
-    window.open(data.signedUrl, '_blank')
+  const addToProspectives = async (c) => {
+    setPickingId(c.id)
+    try {
+      const { data: pros, error } = await supabase
+        .from('prospectives')
+        .insert({ full_name: c.full_name, designation: c.designation, area: c.area, contact: c.phone, status: 'new', candidate_id: c.id })
+        .select('id')
+        .single()
+      if (error) throw error
+      const { error: e2 } = await supabase.from('candidates')
+        .update({ picked_at: new Date().toISOString(), prospective_id: pros.id }).eq('id', c.id)
+      if (e2) throw e2
+      qc.invalidateQueries({ queryKey: ['candidates'] })
+      qc.invalidateQueries({ queryKey: ['prospectives'] })
+      toast(`${c.full_name.split(' ')[0]} added to Prospectives`)
+    } catch (e) {
+      toast(e.message, 'error')
+    } finally {
+      setPickingId(null)
+    }
   }
 
   if (isLoading) return <FullPageSpinner />
@@ -83,12 +92,11 @@ function Pipeline() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Select className="w-44" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="open">All open</option>
-            <option value="all">Everyone</option>
-            {CANDIDATE_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          <Select className="w-56" value={refFilter} onChange={(e) => setRefFilter(e.target.value)}>
+            <option value="">All referrers</option>
+            {referrers.map((r) => <option key={r}>{r}</option>)}
           </Select>
-          <SearchInput value={q} onChange={setQ} placeholder="Search name, org, source…" className="w-72" />
+          <SearchInput value={q} onChange={setQ} placeholder="Search name, company, area, referrer…" className="w-72" />
         </div>
         <Button icon={Plus} onClick={() => setEditing('new')}>Add candidate</Button>
       </div>
@@ -96,48 +104,44 @@ function Pipeline() {
       {!filtered.length ? (
         <EmptyState
           icon={Briefcase}
-          title={q ? 'No matches' : 'No candidates here yet'}
-          hint="Add someone manually, or share a source link (Sources & links tab) so industry contacts can submit candidates directly."
+          title={q || refFilter ? 'No matches' : 'No candidates yet'}
+          hint="Share a referral link (Referral links tab) — sources and employees can submit several candidates at once."
           action={!q && <Button icon={Plus} onClick={() => setEditing('new')}>Add candidate</Button>}
         />
       ) : (
         <Table>
           <thead>
             <tr>
-              <Th>Name</Th><Th>Title</Th><Th>Organisation</Th><Th>Contact</Th><Th>Source</Th><Th>Resume</Th><Th>Status</Th><Th>Added</Th>
+              <Th>Referred by</Th><Th>Name</Th><Th>Area</Th><Th>Designation</Th><Th>Current company</Th><Th>Phone</Th><Th>HR comment</Th><Th>Added</Th><Th />
             </tr>
           </thead>
           <tbody>
             {filtered.map((c) => (
               <Tr key={c.id}>
+                <Td>
+                  <span className="text-slate-700">{c.referred_by_name || '—'}</span>
+                  {c.referrer_emp_id && <p className="text-xs text-slate-400">{c.referrer_emp_id}</p>}
+                </Td>
                 <Td className="font-medium text-slate-900">
                   <button className="hover:text-indigo-600" onClick={() => setEditing(c)}>{c.full_name}</button>
-                  {c.location && <p className="text-xs font-normal text-slate-400">{c.location}</p>}
                 </Td>
-                <Td>{c.title || '—'}</Td>
-                <Td>{c.organization || '—'}</Td>
-                <Td className="text-slate-500">
-                  {c.phone || '—'}
-                  {c.email && <p className="text-xs text-slate-400">{c.email}</p>}
-                </Td>
-                <Td className="text-xs text-slate-500">{c.source || '—'}</Td>
-                <Td>
-                  {c.resume_path || c.resume_name ? (
-                    <button className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline" onClick={() => viewResume(c)}>
-                      <FileText className="h-3.5 w-3.5" /> View
-                    </button>
-                  ) : <span className="text-slate-300">—</span>}
-                </Td>
-                <Td>
-                  <Select
-                    className="w-32 py-1 text-xs"
-                    value={c.status}
-                    onChange={(e) => setStatus(c, e.target.value)}
-                  >
-                    {CANDIDATE_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </Select>
+                <Td>{c.area || '—'}</Td>
+                <Td>{c.designation || '—'}</Td>
+                <Td>{c.current_company || '—'}</Td>
+                <Td className="text-slate-500">{c.phone || '—'}</Td>
+                <Td className="max-w-52">
+                  <span className="line-clamp-2 text-xs text-slate-500">{c.hr_comment || '—'}</span>
                 </Td>
                 <Td className="text-xs text-slate-400">{fmtDate(c.created_at)}</Td>
+                <Td right>
+                  {c.prospective_id ? (
+                    <Badge tone="green"><Check className="h-3 w-3" /> In Prospectives</Badge>
+                  ) : (
+                    <Button variant="secondary" size="xs" icon={ClipboardList} loading={pickingId === c.id} onClick={() => addToProspectives(c)}>
+                      Add to Prospectives
+                    </Button>
+                  )}
+                </Td>
               </Tr>
             ))}
           </tbody>
@@ -149,35 +153,29 @@ function Pipeline() {
   )
 }
 
-const EMPTY = { full_name: '', title: '', organization: '', email: '', phone: '', location: '', source: '', status: 'new', notes: '' }
+const EMPTY = { referred_by_name: '', referrer_emp_id: '', full_name: '', area: '', designation: '', current_company: '', phone: '', hr_comment: '' }
 
 function CandidateModal({ candidate, onClose }) {
   const qc = useQueryClient()
   const toast = useToast()
   const [form, setForm] = useState(candidate ? { ...EMPTY, ...Object.fromEntries(Object.keys(EMPTY).map((k) => [k, candidate[k] ?? ''])) } : EMPTY)
   const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const fileRef = useRef(null)
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ['candidates'] })
-
   const save = async () => {
-    if (!form.full_name.trim()) return toast('Name is required', 'error')
+    if (!form.full_name.trim()) return toast('Candidate name is required', 'error')
     setSaving(true)
     try {
       const payload = { ...form }
       for (const k of Object.keys(payload)) if (payload[k] === '') payload[k] = null
-      if (!payload.source && !candidate) payload.source = 'Manual'
-      if (candidate) {
-        const { error } = await supabase.from('candidates').update(payload).eq('id', candidate.id)
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from('candidates').insert(payload)
-        if (error) throw error
-      }
-      refresh()
-      toast('Candidate saved')
+      if (!candidate && !payload.source) payload.source = 'Manual entry'
+      const qy = candidate
+        ? supabase.from('candidates').update(payload).eq('id', candidate.id)
+        : supabase.from('candidates').insert(payload)
+      const { error } = await qy
+      if (error) throw error
+      qc.invalidateQueries({ queryKey: ['candidates'] })
+      toast('Saved')
       onClose()
     } catch (e) {
       toast(e.message, 'error')
@@ -186,39 +184,17 @@ function CandidateModal({ candidate, onClose }) {
     }
   }
 
-  const uploadResume = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file || !candidate) return
-    setUploading(true)
-    try {
-      const safe = file.name.replace(/[^\w.\-]+/g, '_').slice(-80)
-      const path = `manual/${candidate.id}/${Date.now()}_${safe}`
-      const { error: upErr } = await supabase.storage.from('form-uploads').upload(path, file)
-      if (upErr) throw upErr
-      const { error } = await supabase.from('candidates').update({ resume_path: path, resume_name: file.name }).eq('id', candidate.id)
-      if (error) throw error
-      refresh()
-      toast('Resume attached')
-      onClose()
-    } catch (err) {
-      toast(err.message, 'error')
-    } finally {
-      setUploading(false)
-    }
-  }
-
   const remove = async () => {
-    if (!window.confirm(`Remove ${candidate.full_name} from the candidate database?`)) return
+    if (!window.confirm(`Remove ${candidate.full_name} from the database?`)) return
     const { error } = await supabase.from('candidates').delete().eq('id', candidate.id)
     if (error) return toast(error.message, 'error')
-    refresh()
+    qc.invalidateQueries({ queryKey: ['candidates'] })
     onClose()
   }
 
   return (
     <Modal open onClose={onClose} title={candidate ? candidate.full_name : 'Add candidate'} size="lg"
-      sub={candidate?.source ? `Source: ${candidate.source}${candidate.created_at ? ` · added ${fmtDate(candidate.created_at)}` : ''}` : undefined}
+      sub={candidate?.source ? `Source: ${candidate.source} · added ${fmtDate(candidate.created_at)}` : undefined}
       footer={
         <>
           {candidate && <Button variant="dangerSubtle" icon={Trash2} onClick={remove} className="mr-auto">Remove</Button>}
@@ -227,35 +203,22 @@ function CandidateModal({ candidate, onClose }) {
         </>
       }>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Full name" required><Input value={form.full_name} onChange={set('full_name')} autoFocus={!candidate} /></Field>
-        <Field label="Status">
-          <Select value={form.status} onChange={set('status')}>
-            {CANDIDATE_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </Select>
-        </Field>
-        <Field label="Current title / role"><Input value={form.title} onChange={set('title')} /></Field>
-        <Field label="Current organisation"><Input value={form.organization} onChange={set('organization')} /></Field>
-        <Field label="Email"><Input type="email" value={form.email} onChange={set('email')} /></Field>
-        <Field label="Phone"><Input value={form.phone} onChange={set('phone')} /></Field>
-        <Field label="Location"><Input value={form.location} onChange={set('location')} /></Field>
-        <Field label="Source" hint="Who this candidate came from"><Input value={form.source} onChange={set('source')} placeholder="e.g. Consultant Ramesh / Referral / Naukri" /></Field>
-        <Field label="Notes" className="sm:col-span-2"><Textarea value={form.notes} onChange={set('notes')} /></Field>
-        {candidate && (
-          <div className="sm:col-span-2">
-            <input ref={fileRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={uploadResume} />
-            <Button variant="secondary" size="sm" icon={Upload} loading={uploading} onClick={() => fileRef.current?.click()}>
-              {candidate.resume_path || candidate.resume_name ? `Replace resume (${candidate.resume_name || 'file'})` : 'Attach resume'}
-            </Button>
-          </div>
-        )}
+        <Field label="Referred by (name)"><Input value={form.referred_by_name} onChange={set('referred_by_name')} /></Field>
+        <Field label="Referrer EMP ID" hint="If the referrer is an employee"><Input value={form.referrer_emp_id} onChange={set('referrer_emp_id')} placeholder="e.g. MKM-004" /></Field>
+        <Field label="Candidate name" required><Input value={form.full_name} onChange={set('full_name')} /></Field>
+        <Field label="Area"><Input value={form.area} onChange={set('area')} /></Field>
+        <Field label="Designation"><Input value={form.designation} onChange={set('designation')} /></Field>
+        <Field label="Current company"><Input value={form.current_company} onChange={set('current_company')} /></Field>
+        <Field label="Phone number"><Input value={form.phone} onChange={set('phone')} /></Field>
+        <Field label="HR comment" className="sm:col-span-2"><Textarea value={form.hr_comment} onChange={set('hr_comment')} /></Field>
       </div>
     </Modal>
   )
 }
 
-/* ================= sources & links ================= */
+/* ================= referral links ================= */
 
-function SourceLinks() {
+function ReferralLinks() {
   const qc = useQueryClient()
   const toast = useToast()
   const [creating, setCreating] = useState(false)
@@ -290,15 +253,15 @@ function SourceLinks() {
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-600">
-            Each industry source gets their own link to a form built by the admin. Every submission lands in the candidate
-            database, tagged with the source.
+            One link per source — a consultant, a campus cell, or your own sales team. The form asks for their details once,
+            then lets them add several candidates in a table. Everything lands here, tagged with who referred whom.
           </p>
-          <Button icon={Link2} onClick={() => setCreating(true)}>New source link</Button>
+          <Button icon={Link2} onClick={() => setCreating(true)}>New referral link</Button>
         </div>
       </Card>
 
       {!links.length ? (
-        <EmptyState icon={Link2} title="No source links yet" hint="Create one per consultant, campus cell, or referrer." />
+        <EmptyState icon={Link2} title="No referral links yet" hint="Create one and WhatsApp it to your sources." />
       ) : (
         <Table>
           <thead>
@@ -310,7 +273,7 @@ function SourceLinks() {
                 <Td className="font-medium text-slate-900">{l.source_name}</Td>
                 <Td className="text-slate-500">
                   {l.form_templates?.name}
-                  {l.form_templates?.kind === 'candidate_intake' && <Badge tone="indigo" className="ml-1.5">intake</Badge>}
+                  {l.form_templates?.kind === 'referral' && <Badge tone="indigo" className="ml-1.5">referral</Badge>}
                 </Td>
                 <Td><span className="font-semibold text-slate-800">{l.submission_count}</span></Td>
                 <Td>{l.active ? <Badge tone="green">Active</Badge> : <Badge tone="gray">Disabled</Badge>}</Td>
@@ -344,17 +307,16 @@ function NewLinkModal({ onClose }) {
     queryKey: ['form-templates-active'],
     queryFn: async () => {
       const { data } = await supabase.from('form_templates').select('id, name, kind').eq('active', true).order('name')
-      return data || []
+      return (data || []).filter((f) => f.kind !== 'general')
     },
   })
 
-  // default to the first intake form
-  const intake = forms.filter((f) => f.kind === 'candidate_intake')
-  const effectiveFormId = formId || intake[0]?.id || ''
+  const referral = forms.filter((f) => f.kind === 'referral')
+  const effectiveFormId = formId || referral[0]?.id || forms[0]?.id || ''
 
   const create = async () => {
-    if (!effectiveFormId) return toast('No active form found — ask the admin to create one under Settings → Forms', 'error')
-    if (!sourceName.trim()) return toast('Name the source (e.g. "Consultant Ramesh")', 'error')
+    if (!effectiveFormId) return toast('No active referral form found — ask the admin to check Settings → Forms', 'error')
+    if (!sourceName.trim()) return toast('Name the source (e.g. "Sales team — Punjab")', 'error')
     setSaving(true)
     try {
       const { data, error } = await supabase
@@ -373,13 +335,13 @@ function NewLinkModal({ onClose }) {
   }
 
   return (
-    <Modal open onClose={onClose} title="New source link"
+    <Modal open onClose={onClose} title="New referral link"
       footer={created
         ? <Button onClick={onClose}>Done</Button>
         : <><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={create} loading={saving}>Create link</Button></>}>
       {created ? (
         <div className="space-y-3">
-          <p className="text-sm text-slate-600">Share this with <span className="font-medium">{sourceName}</span> — it works without any login:</p>
+          <p className="text-sm text-slate-600">Share this with <span className="font-medium">{sourceName}</span> — no login needed:</p>
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <code className="min-w-0 flex-1 truncate text-xs text-slate-700">{created}</code>
             <Button size="xs" variant="secondary" icon={Copy} onClick={async () => { await navigator.clipboard.writeText(created); toast('Copied') }}>Copy</Button>
@@ -387,12 +349,12 @@ function NewLinkModal({ onClose }) {
         </div>
       ) : (
         <div className="space-y-4">
-          <Field label="Source name" required hint="Shown on every candidate they submit">
-            <Input value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder="e.g. Consultant Ramesh — TalentBridge" autoFocus />
+          <Field label="Source name" required hint="Tags every candidate they submit">
+            <Input value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder="e.g. Sales team — Punjab / Consultant Ramesh" autoFocus />
           </Field>
           <Field label="Form">
             <Select value={effectiveFormId} onChange={(e) => setFormId(e.target.value)}>
-              {forms.map((f) => <option key={f.id} value={f.id}>{f.name}{f.kind === 'candidate_intake' ? ' (candidate intake)' : ''}</option>)}
+              {forms.map((f) => <option key={f.id} value={f.id}>{f.name}{f.kind === 'referral' ? ' (referral)' : ''}</option>)}
             </Select>
           </Field>
         </div>

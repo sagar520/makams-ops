@@ -65,13 +65,13 @@ export default function FormsTab() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-900">
                     {t.name}
-                    <Badge tone={t.kind === 'candidate_intake' ? 'indigo' : 'slate'} className="ml-2">
-                      {t.kind === 'candidate_intake' ? 'Candidate intake' : 'General'}
+                    <Badge tone={t.kind === 'general' ? 'slate' : 'indigo'} className="ml-2">
+                      {t.kind === 'candidate_intake' ? 'Candidate intake' : t.kind === 'referral' ? 'Referral' : 'General'}
                     </Badge>
                     {!t.active && <Badge tone="gray" className="ml-1.5">Inactive</Badge>}
                   </p>
                   <p className="mt-0.5 text-xs text-slate-400">
-                    {(t.fields || []).length} fields · {t.link_count} link{t.link_count === 1 ? '' : 's'} · {t.response_count} response{t.response_count === 1 ? '' : 's'}
+                    {t.kind === 'referral' ? 'Fixed layout (referrer + candidates table)' : `${(t.fields || []).length} fields`} · {t.link_count} link{t.link_count === 1 ? '' : 's'} · {t.response_count} response{t.response_count === 1 ? '' : 's'}
                   </p>
                 </div>
                 <Button variant="ghost" size="sm" icon={Inbox} onClick={() => setViewing(t)}>Responses ({t.response_count})</Button>
@@ -113,6 +113,24 @@ function FormBuilder({ template, onClose, onSaved }) {
 
   const save = async () => {
     if (!name.trim()) return toast('Name the form', 'error')
+    if (kind === 'referral') {
+      setSaving(true)
+      try {
+        const payload = { name: name.trim(), description: description.trim() || null, kind, fields: [] }
+        const { error } = await (template
+          ? supabase.from('form_templates').update(payload).eq('id', template.id)
+          : supabase.from('form_templates').insert(payload))
+        if (error) throw error
+        toast('Form saved')
+        onSaved()
+        onClose()
+      } catch (e) {
+        toast(e.message, 'error')
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
     const clean = fields
       .filter((f) => f.label.trim())
       .map((f) => ({
@@ -156,14 +174,22 @@ function FormBuilder({ template, onClose, onSaved }) {
             <Field label="Intro text shown to the person filling it" className="sm:col-span-2">
               <Input value={description} onChange={(e) => setDescription(e.target.value)} />
             </Field>
-            <Field label="Type" hint="Intake forms create candidates automatically" className="sm:col-span-2">
+            <Field label="Type" hint="Referral and intake forms feed the Candidates DB automatically" className="sm:col-span-2">
               <Select value={kind} onChange={(e) => setKind(e.target.value)}>
+                <option value="referral">Referral (referrer details + candidates table)</option>
+                <option value="candidate_intake">Candidate intake (one candidate per submission)</option>
                 <option value="general">General (responses only)</option>
-                <option value="candidate_intake">Candidate intake</option>
               </Select>
             </Field>
           </div>
 
+          {kind === 'referral' ? (
+            <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
+              Referral forms have a fixed layout: the person's own details (name, employee ID, phone) followed by a table
+              where they can add multiple candidates (name, designation, area, current company, phone). Only the name and
+              intro text above are editable.
+            </p>
+          ) : (
           <div>
             <p className="mb-2 text-[13px] font-medium text-slate-600">Fields</p>
             <div className="space-y-2.5">
@@ -201,6 +227,7 @@ function FormBuilder({ template, onClose, onSaved }) {
               <Button variant="secondary" size="sm" icon={Plus} onClick={() => setFields((fs) => [...fs, newField()])}>Add field</Button>
             </div>
           </div>
+          )}
         </div>
 
         {/* ---------- right: live preview ---------- */}
@@ -274,9 +301,17 @@ function ResponsesModal({ template, onClose }) {
               </p>
               <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
                 {Object.entries(r.answers || {}).map(([k, v]) => (
-                  <div key={k} className="text-sm">
+                  <div key={k} className={cx('text-sm', k === 'candidates' && 'sm:col-span-2')}>
                     <dt className="text-xs text-slate-400">{labelFor(k)}</dt>
-                    <dd className="text-slate-700">{String(v)}</dd>
+                    <dd className="text-slate-700">
+                      {k === 'referrer' && v && typeof v === 'object'
+                        ? [v.name, v.emp_id, v.phone].filter(Boolean).join(' · ')
+                        : k === 'candidates' && Array.isArray(v)
+                        ? v.map((c) => c.name).filter(Boolean).join(', ')
+                        : typeof v === 'object'
+                        ? JSON.stringify(v)
+                        : String(v)}
+                    </dd>
                   </div>
                 ))}
                 {(r.files || []).map((f) => (

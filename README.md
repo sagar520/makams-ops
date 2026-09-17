@@ -2,11 +2,15 @@
 
 Internal operations app for Makams — HR and Purchase.
 
-**HR**: employee database (joining → active → exited), a separate **candidate
-database** (talent pool tracked by name/title/org/status/resume, filled by industry
-sources through shareable no-login links), document collection via no-login links sent
-to employees, onboarding/exit checklists, one-way sync **to** the company employee
-Google Sheet, and user management for the CRIL learnapp.
+**HR** (sales department only): the sales-force employee database built on the same
+users framework as the learnapp (Employee ID = learnapp login, level Sales/ASM/RSM/HO,
+HQ + ASM/RSM hierarchy), a **Prospectives** sheet (the active hiring pipeline: Name,
+Designation, Area, Contact, Status with filters), a **Candidates DB** filled through
+shareable referral links (referrer enters their details once, then multiple candidates
+in a table; every row lands tagged with Referred-by + EMP ID), one-click push from the
+DB to Prospectives, onboarding/exit checklists, one-way sync **to** the employee Google
+Sheet, and learnapp account management (create login = Employee ID + password,
+disable/enable on exit).
 
 **Admin**: manages users/roles, the jotform-style **form builder** (candidate-intake
 and general forms), checklist templates, PO types/locations/approval rules, and company
@@ -31,8 +35,8 @@ VITE_DEMO=1 npm run dev
 
 Demo mode runs the **entire app against an in-memory sample dataset** — no Supabase
 project, no env vars, no cost. Every flow works: create/submit/approve/reject POs,
-record receipts, duplicate, PO PDFs, employee upload links (open one from Upload
-requests), checklists, learnapp actions (simulated). Changes live only in the tab and
+record receipts, duplicate, PO PDFs, the Prospectives sheet, referral links and the
+public referral form, checklists, learnapp actions (simulated). Changes live only in the tab and
 reset on refresh. `VITE_DEMO=1 npm run build` produces a static demo build you can host
 anywhere.
 
@@ -45,11 +49,12 @@ Never set `VITE_DEMO` on the real deployment.
 1. [supabase.com](https://supabase.com) → New project (free tier is fine; the free plan
    allows 2 active projects, so the learnapp and this can co-exist).
 2. **Before running migrations**: open `supabase/migrations/0004_seed.sql` and check the
-   first-admin email (currently `aakash@makams.com`) — that account becomes admin on
+   first-admin email (currently `sagar@makams.com`) — that account becomes admin on
    first sign-in.
 3. Run the migrations, either way:
    - **Dashboard**: SQL Editor → paste and run `0001_core.sql`, `0002_hr.sql`,
-     `0003_purchase.sql`, `0004_seed.sql` **in order**.
+     `0003_purchase.sql`, … through `0007_sales_employees.sql` **in order** (or paste the
+     combined `supabase/makams-ops-schema.sql` once).
    - **CLI**: `supabase link --project-ref <ref>` then `supabase db push`.
 
 The migrations create all tables, RLS policies, RPCs, the private `employee-docs`
@@ -90,10 +95,9 @@ Four functions live in `supabase/functions/`:
 | Function | Purpose | Secrets it needs |
 |---|---|---|
 | `send-po` | Emails the PO PDF to vendors via Resend, logs sends | `RESEND_API_KEY`, `PO_FROM_EMAIL` |
-| `public-upload` | Receives employee document uploads from `/u/:token` pages | — |
 | `public-form` | Receives form submissions (candidate intake etc.) from `/f/:token` pages | — |
 | `sync-sheet` | Overwrites the employee tab in your Google Sheet from the app | `GOOGLE_SERVICE_ACCOUNT`, `SHEET_ID`, `SHEET_TAB` |
-| `learnapp-admin` | Creates/disables learnapp accounts | `LEARNAPP_URL`, `LEARNAPP_SERVICE_ROLE_KEY` |
+| `learnapp-admin` | Creates/disables learnapp accounts (Employee-ID login) | `LEARNAPP_URL`, `LEARNAPP_SERVICE_ROLE_KEY`, `LEARNAPP_EMAIL_DOMAIN` (optional) |
 
 Deploy (needs the [Supabase CLI](https://supabase.com/docs/guides/cli), logged in and linked):
 
@@ -101,8 +105,7 @@ Deploy (needs the [Supabase CLI](https://supabase.com/docs/guides/cli), logged i
 supabase functions deploy send-po
 supabase functions deploy sync-sheet
 supabase functions deploy learnapp-admin
-supabase functions deploy public-upload --no-verify-jwt   # public by design; every request is validated against the link token
-supabase functions deploy public-form --no-verify-jwt     # same: token-gated public endpoint
+supabase functions deploy public-form --no-verify-jwt   # public by design; every request is validated against the link token
 ```
 
 Set the secrets:
@@ -144,18 +147,19 @@ set — you can go live without them and add them later.
 
 - `LEARNAPP_SERVICE_ROLE_KEY` is the learnapp project's service_role key (Dashboard →
   Settings → API). It stays server-side in the edge function; the browser never sees it.
-- "Invite by email" uses the learnapp's own invite email; "Create with password" shows
-  HR a one-time password to share.
-- If the learnapp expects a row in its own `profiles`-style table for each user, add
-  that insert at the marked **LEARNAPP PROFILE HOOK** in
-  `supabase/functions/learnapp-admin/index.ts`.
+- Account creation mirrors the learnapp's own `create-user` function: login is the
+  Employee ID, the auth email is synthesized as `<empid>@<LEARNAPP_EMAIL_DOMAIN>`
+  (default `example.com` — must match `EMAIL_DOMAIN` in the learnapp's
+  `src/supabase.js`), and a matching row is inserted into the learnapp `profiles`
+  table with role `sales`. HR gets a one-time password to share; disable/enable also
+  flips `profiles.active` there.
 
 ## 5. Deploy on Vercel
 
 1. Push this repo to GitHub, import it in Vercel (framework: Vite — auto-detected).
 2. Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
 3. `vercel.json` already rewrites all routes to `index.html` (SPA routing, including
-   the public `/u/:token` pages).
+   the public `/f/:token` referral pages).
 4. After the first deploy, put the final URL in Supabase Auth → URL Configuration
    (Site URL), or Google sign-in will bounce back to localhost.
 
@@ -184,18 +188,18 @@ set — you can go live without them and add them later.
   tracked per line) → close. Duplicate works from any status and creates a fresh draft.
   All state transitions run through SECURITY DEFINER RPCs — the client can only edit
   drafts.
-- **Employee links**: HR picks documents + fields on a person's Documents tab → gets a
-  tokenised URL (WhatsApp/email share built in) valid for 7–30 days. The employee
-  uploads/edits without login; only whitelisted fields can be written through a link,
-  and files go to the private `employee-docs` bucket. Links are trackable
-  (sent/opened/submitted) and revocable under Upload requests.
-- **Candidates & source links**: the candidate database is separate from employees.
-  Admin builds the intake form (Settings → Forms); HR creates one link per industry
-  source (Candidates → Sources & links) and shares it. Every submission is stored as a
-  response and lands in the candidate database tagged with its source, resume attached.
-  Status is a simple dropdown per candidate (New → Screening → Interview → Offer →
-  Hired / Rejected / On hold). Marking someone Hired does **not** create an employee —
-  add them under People when they actually join.
+- **Employee document requests** (send-a-link uploads) are currently switched off in
+  the UI by request; the backend for them remains in place if wanted later. HR can
+  still upload documents directly on a person's Documents tab.
+- **Prospectives**: the flat hiring sheet HR works daily — Name, Designation, Area,
+  Contact, Status (New → Contacted → Interested → Interview Scheduled → Offer Letter
+  Sent → Joined, plus Rejected), with status/area filters and inline status changes.
+- **Candidates DB & referral links**: the raw referral pool. HR creates one link per
+  source (Candidates DB → Referral links); the public form takes the referrer's details
+  once (name, EMP ID if an employee, phone) then a table of candidates (name,
+  designation, area, current company, phone) — every row lands in the DB tagged with
+  Referred-by. HR adds comments and pushes good ones to Prospectives with one click
+  (the row is then flagged "In Prospectives"). Nothing here auto-creates employees.
 - **Forms**: admin-only builder, jotform-style — add fields (text, paragraph, email,
   phone, number, date, dropdown, file), mark required, reorder, live preview.
   Candidate-intake forms map fields into the candidate database; general forms just

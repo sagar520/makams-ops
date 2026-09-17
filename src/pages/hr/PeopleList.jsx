@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { UserPlus, Upload, Users, RefreshCw } from 'lucide-react'
 import { supabase, callFunction } from '../../lib/supabase'
 import { PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, EmptyState, FullPageSpinner, useToast } from '../../components/ui'
-import { peopleStatusMeta } from '../../lib/constants'
+import { peopleStatusMeta, salesRoleLabel } from '../../lib/constants'
 import { fmtDate } from '../../lib/format'
 
 export default function PeopleList() {
@@ -20,7 +20,7 @@ export default function PeopleList() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('people')
-        .select('id, emp_code, full_name, status, department, designation, phone, personal_email, work_email, date_of_join, date_of_exit, learnapp_status')
+        .select('id, emp_code, full_name, status, sales_role, hq_name, asm_name, phone, personal_email, work_email, date_of_join, date_of_exit, learnapp_status')
         .order('full_name')
         .limit(2000)
       if (error) throw error
@@ -39,7 +39,7 @@ export default function PeopleList() {
     if (q.trim()) {
       const needle = q.trim().toLowerCase()
       list = list.filter((p) =>
-        [p.full_name, p.emp_code, p.department, p.designation, p.phone, p.personal_email, p.work_email]
+        [p.full_name, p.emp_code, p.hq_name, p.asm_name, p.phone, p.personal_email, p.work_email]
           .filter(Boolean)
           .some((v) => v.toLowerCase().includes(needle))
       )
@@ -64,8 +64,8 @@ export default function PeopleList() {
   return (
     <div>
       <PageHeader
-        title="People"
-        sub="Employees, candidates and exits — source of truth for the employee sheet."
+        title="Employees"
+        sub="The sales force — source of truth for the employee sheet and learnapp accounts."
         actions={
           <>
             <Button variant="secondary" icon={RefreshCw} loading={syncing} onClick={syncSheet}>Sync sheet</Button>
@@ -101,9 +101,10 @@ export default function PeopleList() {
           <thead>
             <tr>
               <Th>Name</Th>
-              <Th>Code</Th>
-              <Th>Department</Th>
-              <Th>Designation</Th>
+              <Th>EMP ID</Th>
+              <Th>Level</Th>
+              <Th>HQ</Th>
+              <Th>ASM</Th>
               <Th>Contact</Th>
               <Th>{status === 'exited' ? 'Exit date' : 'Joined'}</Th>
               <Th>Learnapp</Th>
@@ -118,8 +119,9 @@ export default function PeopleList() {
                   </Link>
                 </Td>
                 <Td className="text-slate-500">{p.emp_code || '—'}</Td>
-                <Td>{p.department || '—'}</Td>
-                <Td>{p.designation || '—'}</Td>
+                <Td>{salesRoleLabel(p.sales_role)}</Td>
+                <Td>{p.hq_name || '—'}</Td>
+                <Td className="text-slate-500">{p.asm_name || '—'}</Td>
                 <Td className="text-slate-500">{p.phone || p.personal_email || p.work_email || '—'}</Td>
                 <Td>{fmtDate(status === 'exited' ? p.date_of_exit : p.date_of_join)}</Td>
                 <Td>

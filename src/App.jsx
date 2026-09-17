@@ -9,9 +9,8 @@ import PeopleList from './pages/hr/PeopleList'
 import PersonDetail from './pages/hr/PersonDetail'
 import PersonForm from './pages/hr/PersonForm'
 import ImportPeople from './pages/hr/ImportPeople'
-import UploadRequests from './pages/hr/UploadRequests'
 import Candidates from './pages/hr/Candidates'
-import UploadPortal from './pages/public/UploadPortal'
+import Prospectives from './pages/hr/Prospectives'
 import FormPage from './pages/public/FormPage'
 import Vendors from './pages/purchase/Vendors'
 import POList from './pages/purchase/POList'
@@ -96,8 +95,7 @@ export default function App() {
         {isDemo && <DemoBanner />}
         <Router>
           <Routes>
-            {/* Public: tokenised links — employee document portal, source/candidate forms */}
-            <Route path="/u/:token" element={<UploadPortal />} />
+            {/* Public: tokenised referral/intake form links */}
             <Route path="/f/:token" element={<FormPage />} />
 
             <Route element={<Protected />}>
@@ -108,7 +106,7 @@ export default function App() {
               <Route path="/people/import" element={<RequireRole roles={['hr']}><ImportPeople /></RequireRole>} />
               <Route path="/people/:id" element={<RequireRole roles={['hr']}><PersonDetail /></RequireRole>} />
               <Route path="/people/:id/edit" element={<RequireRole roles={['hr']}><PersonForm /></RequireRole>} />
-              <Route path="/upload-requests" element={<RequireRole roles={['hr']}><UploadRequests /></RequireRole>} />
+              <Route path="/prospectives" element={<RequireRole roles={['hr']}><Prospectives /></RequireRole>} />
               <Route path="/candidates" element={<RequireRole roles={['hr']}><Candidates /></RequireRole>} />
 
               <Route path="/vendors" element={<RequireRole roles={['purchase']}><Vendors /></RequireRole>} />

@@ -1,8 +1,26 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { CheckCircle2, AlertTriangle, Loader2, Upload } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Loader2, Upload, Plus, X } from 'lucide-react'
 import { supabase, functionsUrl, supabaseAnonKey, isDemo, callFunction } from '../../lib/supabase'
 import { Button, Input, Textarea, Select, Field, cx } from '../../components/ui'
+
+async function postForm(token, answers, files = {}) {
+  if (isDemo) {
+    await callFunction('public-form', { token, answers, files })
+    return
+  }
+  const fd = new FormData()
+  fd.append('token', token)
+  fd.append('answers', JSON.stringify(answers))
+  for (const [key, file] of Object.entries(files)) fd.append(`file_${key}`, file)
+  const res = await fetch(`${functionsUrl}/public-form`, {
+    method: 'POST',
+    headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseAnonKey}` },
+    body: fd,
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok || json.error) throw new Error(json.error || 'Something went wrong — please try again')
+}
 
 export default function FormPage() {
   const { token } = useParams()
@@ -31,21 +49,7 @@ export default function FormPage() {
     }
     setSubmitting(true)
     try {
-      if (isDemo) {
-        await callFunction('public-form', { token, answers: values, files })
-      } else {
-        const fd = new FormData()
-        fd.append('token', token)
-        fd.append('answers', JSON.stringify(values))
-        for (const [key, file] of Object.entries(files)) fd.append(`file_${key}`, file)
-        const res = await fetch(`${functionsUrl}/public-form`, {
-          method: 'POST',
-          headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseAnonKey}` },
-          body: fd,
-        })
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok || json.error) throw new Error(json.error || 'Something went wrong — please try again')
-      }
+      await postForm(token, values, files)
       setDone(true)
       window.scrollTo(0, 0)
     } catch (e) {
@@ -92,6 +96,10 @@ export default function FormPage() {
         </div>
       </div>
     )
+  }
+
+  if (info.form.kind === 'referral') {
+    return <ReferralForm token={token} info={info} onDone={() => { setDone(true); window.scrollTo(0, 0) }} />
   }
 
   return (
@@ -141,6 +149,98 @@ export default function FormPage() {
             </Field>
           ))}
           <Button className="w-full" loading={submitting} onClick={submit}>Submit</Button>
+        </div>
+
+        <p className="pt-2 text-center text-xs text-slate-400">
+          Shared with {info.source_name} · Powered by {info.company} Ops
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ---------------- referral form: your details + a table of candidates ---------------- */
+
+let rowKey = 0
+const emptyRow = () => ({ key: ++rowKey, name: '', designation: '', area: '', current_company: '', phone: '' })
+
+function ReferralForm({ token, info, onDone }) {
+  const [referrer, setReferrer] = useState({ name: '', emp_id: '', phone: '' })
+  const [rows, setRows] = useState([emptyRow()])
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+
+  const setRef = (k) => (e) => setReferrer((r) => ({ ...r, [k]: e.target.value }))
+  const setRow = (key, k, v) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, [k]: v } : r)))
+
+  const submit = async () => {
+    setError(null)
+    if (!referrer.name.trim()) return setError('Please enter your name')
+    const filled = rows.filter((r) => r.name.trim())
+    if (!filled.length) return setError('Add at least one candidate with a name')
+    setSubmitting(true)
+    try {
+      await postForm(token, {
+        referrer: { name: referrer.name.trim(), emp_id: referrer.emp_id.trim() || null, phone: referrer.phone.trim() || null },
+        candidates: filled.map(({ key, ...r }) => r),
+      })
+      onDone()
+    } catch (e) {
+      setError(e.message)
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-100 pb-16">
+      <div className="bg-indigo-600 pb-16 pt-10 text-center text-white">
+        <p className="text-xs font-medium uppercase tracking-widest text-indigo-200">{info.company}</p>
+        <h1 className="mt-1 px-4 text-xl font-semibold">{info.form.name}</h1>
+        {info.form.description && <p className="mx-auto mt-1 max-w-md px-6 text-sm text-indigo-100">{info.form.description}</p>}
+      </div>
+
+      <div className="mx-auto -mt-10 w-full max-w-2xl space-y-4 px-4">
+        {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700">{error}</div>}
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-slate-800">Your details</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Your name" required><Input value={referrer.name} onChange={setRef('name')} /></Field>
+            <Field label="Employee ID" hint="If you work at Makams"><Input value={referrer.emp_id} onChange={setRef('emp_id')} placeholder="e.g. MKM-004" /></Field>
+            <Field label="Your phone"><Input value={referrer.phone} onChange={setRef('phone')} /></Field>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-5 py-3">
+            <h2 className="text-sm font-semibold text-slate-800">Candidates you're referring</h2>
+            <p className="text-xs text-slate-400">Add as many as you like — only a name is compulsory.</p>
+          </div>
+          <div className="space-y-3 p-4">
+            {rows.map((r, i) => (
+              <div key={r.key} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Candidate {i + 1}</p>
+                  {rows.length > 1 && (
+                    <button className="text-slate-300 hover:text-red-500" onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}>
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Name" required><Input className="bg-white" value={r.name} onChange={(e) => setRow(r.key, 'name', e.target.value)} /></Field>
+                  <Field label="Phone number"><Input className="bg-white" value={r.phone} onChange={(e) => setRow(r.key, 'phone', e.target.value)} /></Field>
+                  <Field label="Designation"><Input className="bg-white" value={r.designation} onChange={(e) => setRow(r.key, 'designation', e.target.value)} /></Field>
+                  <Field label="Area"><Input className="bg-white" value={r.area} onChange={(e) => setRow(r.key, 'area', e.target.value)} /></Field>
+                  <Field label="Current company" className="sm:col-span-2"><Input className="bg-white" value={r.current_company} onChange={(e) => setRow(r.key, 'current_company', e.target.value)} /></Field>
+                </div>
+              </div>
+            ))}
+            <Button variant="secondary" size="sm" icon={Plus} onClick={() => setRows((rs) => [...rs, emptyRow()])}>Add another candidate</Button>
+            <Button className="w-full" loading={submitting} onClick={submit}>
+              Submit {rows.filter((r) => r.name.trim()).length || ''} candidate{rows.filter((r) => r.name.trim()).length === 1 ? '' : 's'}
+            </Button>
+          </div>
         </div>
 
         <p className="pt-2 text-center text-xs text-slate-400">

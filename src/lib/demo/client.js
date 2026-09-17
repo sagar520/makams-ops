@@ -130,7 +130,7 @@ function hydrateTable(table) {
 
 const insertDefaults = {
   app_users: () => ({ id: genId('u'), auth_id: null, active: true, roles: [], created_at: nowIso(), updated_at: nowIso() }),
-  people: () => ({ id: genId('p'), status: 'candidate', extra: {}, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
+  people: () => ({ id: genId('p'), status: 'joining', sales_role: 'sales', department: 'Sales', extra: {}, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
   person_documents: () => ({ id: genId('d'), status: 'uploaded', source: 'hr', uploaded_at: nowIso(), created_at: nowIso() }),
   upload_links: () => ({ id: genId('l'), token: genId('demo-link'), doc_types: [], profile_fields: [], expires_at: new Date(Date.now() + 14 * 86400000).toISOString(), created_by: 'u-aakash', created_at: nowIso(), revoked_at: null, last_used_at: null, submitted_at: null }),
   checklist_templates: () => ({ id: genId('t'), active: true, created_at: nowIso() }),
@@ -147,7 +147,8 @@ const insertDefaults = {
   learnapp_actions: () => ({ id: genId('la'), created_by: 'u-aakash', created_at: nowIso() }),
   sheet_sync_log: () => ({ id: genId('ss'), created_by: 'u-aakash', created_at: nowIso() }),
   app_settings: () => ({ updated_at: nowIso() }),
-  candidates: () => ({ id: genId('c'), status: 'new', extra: {}, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
+  candidates: () => ({ id: genId('c'), status: 'new', extra: {}, referred_by_name: null, referrer_emp_id: null, picked_at: null, prospective_id: null, hr_comment: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
+  prospectives: () => ({ id: genId('pr'), status: 'new', candidate_id: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
   form_templates: () => ({ id: genId('ft'), kind: 'general', fields: [], active: true, created_at: nowIso(), updated_at: nowIso() }),
   form_links: () => ({ id: genId('fl'), token: genId('demo-link'), active: true, expires_at: null, submission_count: 0, created_by: 'u-aakash', created_at: nowIso() }),
   form_responses: () => ({ id: genId('fr'), answers: {}, files: [], candidate_id: null, created_at: nowIso() }),
@@ -572,42 +573,24 @@ async function invokeFunction(name, body = {}) {
   if (name === 'learnapp-admin') {
     const person = store.people.find((p) => p.id === body.person_id)
     if (!person) return { error: 'Person not found' }
-    const email = body.email || person.work_email || person.personal_email
     const log = (status, detail) => store.learnapp_actions.unshift({ id: genId('la'), person_id: person.id, action: body.action, status, detail, created_by: me().id, created_at: nowIso() })
 
-    if (body.action === 'invite' || body.action === 'create') {
-      if (!email) return { error: 'No email on file for this person' }
+    if (body.action === 'create') {
+      const empId = (person.emp_code || '').trim()
+      if (!empId) return { error: 'Set an Employee ID first — it becomes their learnapp login' }
+      if (person.learnapp_user_id) return { error: 'They already have a learnapp account' }
       person.learnapp_user_id = genId('lu')
-      person.learnapp_email = email
+      person.learnapp_email = `${empId.toLowerCase()}@example.com`
       person.learnapp_status = 'active'
-      log('ok', `${email} (demo)`)
-      return body.action === 'create'
-        ? { ok: true, message: `Account created for ${email} (demo)`, password: 'Demo@' + Math.random().toString(36).slice(2, 8) }
-        : { ok: true, message: `Invite email sent to ${email} (demo — no real email goes out)` }
+      log('ok', `${empId} (demo)`)
+      return { ok: true, message: `Learnapp login created — ID: ${empId} (demo)`, password: 'Demo' + Math.random().toString(36).slice(2, 8) }
     }
     if (body.action === 'disable' || body.action === 'enable') {
       person.learnapp_status = body.action === 'disable' ? 'disabled' : 'active'
-      log('ok', person.learnapp_email || '')
+      log('ok', person.emp_code || '')
       return { ok: true, message: body.action === 'disable' ? 'Learnapp access disabled (demo)' : 'Learnapp access re-enabled (demo)' }
     }
     return { error: 'Unknown action' }
-  }
-
-  if (name === 'public-upload') {
-    const link = store.upload_links.find((l) => l.token === body.token)
-    if (!link) return { error: 'This link is not valid' }
-    if (link.revoked_at) return { error: 'This link is no longer active' }
-    if (new Date(link.expires_at) < new Date()) return { error: 'This link has expired' }
-    if (!link.doc_types.includes(body.doc_type)) return { error: 'This document was not requested' }
-    const file = body.file
-    const path = `${link.person_id}/${body.doc_type}/${Date.now()}_${file?.name || 'file'}`
-    if (file) { try { objectUrls[path] = URL.createObjectURL(file) } catch { /* ignore */ } }
-    const existing = store.person_documents.find((d) => d.person_id === link.person_id && d.doc_type === body.doc_type && d.link_id === link.id)
-    const fields = { file_path: path, file_name: file?.name || 'upload', mime_type: file?.type || '', size_bytes: file?.size || 0, status: 'uploaded', source: 'employee', uploaded_at: nowIso() }
-    if (existing) Object.assign(existing, fields)
-    else store.person_documents.push({ id: genId('d'), person_id: link.person_id, doc_type: body.doc_type, link_id: link.id, created_at: nowIso(), ...fields })
-    link.last_used_at = nowIso()
-    return { ok: true }
   }
 
   if (name === 'public-form') {
@@ -616,6 +599,34 @@ async function invokeFunction(name, body = {}) {
     if (link.expires_at && new Date(link.expires_at) < new Date()) return { error: 'This link has expired' }
     const tpl = store.form_templates.find((t) => t.id === link.form_id)
     if (!tpl || !tpl.active) return { error: 'This form is no longer accepting responses' }
+
+    if (tpl.kind === 'referral') {
+      const referrer = body.answers?.referrer || {}
+      const refName = String(referrer.name || '').trim()
+      if (!refName) return { error: 'Your name is required' }
+      const rows = (body.answers?.candidates || [])
+        .map((c) => ({
+          full_name: String(c.name || '').trim(),
+          designation: String(c.designation || '').trim() || null,
+          area: String(c.area || '').trim() || null,
+          current_company: String(c.current_company || '').trim() || null,
+          phone: String(c.phone || '').trim() || null,
+        }))
+        .filter((c) => c.full_name)
+      if (!rows.length) return { error: 'Add at least one candidate with a name' }
+
+      const response = { ...insertDefaults.form_responses(), form_id: tpl.id, link_id: link.id, answers: body.answers, files: [] }
+      store.form_responses.unshift(response)
+      for (const c of rows) {
+        store.candidates.unshift({
+          ...insertDefaults.candidates(), ...c,
+          referred_by_name: refName, referrer_emp_id: referrer.emp_id || null,
+          source: link.source_name, link_id: link.id, response_id: response.id, created_by: link.created_by,
+        })
+      }
+      link.submission_count = (link.submission_count || 0) + 1
+      return { ok: true, added: rows.length }
+    }
 
     const answers = body.answers || {}
     const clean = {}
@@ -653,9 +664,10 @@ async function invokeFunction(name, body = {}) {
       if (mapped.full_name) {
         const cand = {
           ...insertDefaults.candidates(),
-          full_name: mapped.full_name, title: mapped.title || null, organization: mapped.organization || null,
-          email: mapped.email || null, phone: mapped.phone || null, location: mapped.location || null,
-          notes: mapped.notes || null, resume_path: resume?.path || null, resume_name: resume?.name || null,
+          full_name: mapped.full_name, designation: mapped.title || null, current_company: mapped.organization || null,
+          email: mapped.email || null, phone: mapped.phone || null, area: mapped.location || null,
+          hr_comment: mapped.notes || null, resume_path: resume?.path || null, resume_name: resume?.name || null,
+          referred_by_name: link.source_name,
           source: link.source_name, link_id: link.id, response_id: response.id, extra: clean, created_by: link.created_by,
         }
         store.candidates.unshift(cand)

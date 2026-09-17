@@ -3,10 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase, callFunction } from '../../lib/supabase'
 import { PageHeader, Card, Button, Input, Select, Textarea, Field, FullPageSpinner, useToast } from '../../components/ui'
-import { PEOPLE_STATUS } from '../../lib/constants'
+import { PEOPLE_STATUS, SALES_ROLES } from '../../lib/constants'
 
 const EMPTY = {
-  full_name: '', emp_code: '', status: 'joining', department: '', designation: '', location: '',
+  full_name: '', emp_code: '', status: 'joining', sales_role: 'sales', hq_name: '', asm_name: '', rsm_name: '',
   employment_type: '', date_of_join: '', date_of_exit: '', exit_reason: '',
   personal_email: '', work_email: '', phone: '', alt_phone: '',
   date_of_birth: '', gender: '', blood_group: '',
@@ -94,24 +94,28 @@ export default function PersonForm() {
         <Card title="Basics">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Full name" required><Input value={form.full_name} onChange={set('full_name')} /></Field>
-            <Field label="Employee code"><Input value={form.emp_code} onChange={set('emp_code')} placeholder="e.g. MKM-014" /></Field>
+            <Field label="Employee ID" hint="Also their learnapp login"><Input value={form.emp_code} onChange={set('emp_code')} placeholder="e.g. SALES014" /></Field>
             <Field label="Status">
               <Select value={form.status} onChange={set('status')}>
                 {PEOPLE_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </Select>
             </Field>
+            <Field label="Level">
+              <Select value={form.sales_role} onChange={set('sales_role')}>
+                {SALES_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </Select>
+            </Field>
+            <Field label="HQ" hint="Headquarter / territory"><Input value={form.hq_name} onChange={set('hq_name')} placeholder="e.g. Ludhiana" /></Field>
             <Field label="Employment type">
               <Select value={form.employment_type} onChange={set('employment_type')}>
                 <option value="">—</option>
                 <option value="full_time">Full time</option>
                 <option value="part_time">Part time</option>
                 <option value="contract">Contract</option>
-                <option value="intern">Intern</option>
               </Select>
             </Field>
-            <Field label="Department"><Input value={form.department} onChange={set('department')} /></Field>
-            <Field label="Designation"><Input value={form.designation} onChange={set('designation')} /></Field>
-            <Field label="Work location"><Input value={form.location} onChange={set('location')} /></Field>
+            <Field label="ASM (name)"><Input value={form.asm_name} onChange={set('asm_name')} /></Field>
+            <Field label="RSM (name)"><Input value={form.rsm_name} onChange={set('rsm_name')} /></Field>
             <Field label="Date of joining"><Input type="date" value={form.date_of_join || ''} onChange={set('date_of_join')} /></Field>
             {form.status === 'exited' && (
               <>

@@ -39,6 +39,52 @@ Deno.serve(async (req) => {
   const { data: tpl } = await svc.from('form_templates').select('*').eq('id', link.form_id).maybeSingle()
   if (!tpl || !tpl.active) return json({ error: 'This form is no longer accepting responses' }, 403)
 
+  // ---- referral forms: referrer details + a table of candidates ----
+  if (tpl.kind === 'referral') {
+    const referrer = (answers as any).referrer || {}
+    const cands: any[] = Array.isArray((answers as any).candidates) ? (answers as any).candidates : []
+    const refName = String(referrer.name || '').trim()
+    if (!refName) return json({ error: 'Your name is required' }, 400)
+    const rows = cands
+      .map((c) => ({
+        full_name: String(c.name || '').trim().slice(0, 200),
+        designation: String(c.designation || '').trim().slice(0, 200) || null,
+        area: String(c.area || '').trim().slice(0, 200) || null,
+        current_company: String(c.current_company || '').trim().slice(0, 200) || null,
+        phone: String(c.phone || '').trim().slice(0, 40) || null,
+      }))
+      .filter((c) => c.full_name)
+    if (!rows.length) return json({ error: 'Add at least one candidate with a name' }, 400)
+    if (rows.length > 50) return json({ error: 'Maximum 50 candidates per submission' }, 400)
+
+    const { data: response, error: respErr } = await svc
+      .from('form_responses')
+      .insert({
+        form_id: tpl.id,
+        link_id: link.id,
+        answers: { referrer: { name: refName, emp_id: String(referrer.emp_id || '').trim() || null, phone: String(referrer.phone || '').trim() || null }, candidates: rows },
+      })
+      .select('id')
+      .single()
+    if (respErr) return json({ error: respErr.message }, 500)
+
+    const { error: candErr } = await svc.from('candidates').insert(
+      rows.map((c) => ({
+        ...c,
+        referred_by_name: refName,
+        referrer_emp_id: String(referrer.emp_id || '').trim() || null,
+        source: link.source_name,
+        link_id: link.id,
+        response_id: response.id,
+        created_by: link.created_by,
+      }))
+    )
+    if (candErr) return json({ error: candErr.message }, 500)
+
+    await svc.from('form_links').update({ submission_count: (link.submission_count || 0) + 1 }).eq('id', link.id)
+    return json({ ok: true, added: rows.length })
+  }
+
   const fields: any[] = Array.isArray(tpl.fields) ? tpl.fields : []
 
   // server-side required check + whitelist answers to known keys
@@ -96,12 +142,13 @@ Deno.serve(async (req) => {
         .from('candidates')
         .insert({
           full_name: mapped.full_name,
-          title: mapped.title ?? null,
-          organization: mapped.organization ?? null,
+          designation: mapped.title ?? null,
+          current_company: mapped.organization ?? null,
           email: mapped.email ?? null,
           phone: mapped.phone ?? null,
-          location: mapped.location ?? null,
-          notes: mapped.notes ?? null,
+          area: mapped.location ?? null,
+          hr_comment: mapped.notes ?? null,
+          referred_by_name: link.source_name,
           resume_path: resume?.path ?? null,
           resume_name: resume?.name ?? null,
           source: link.source_name,

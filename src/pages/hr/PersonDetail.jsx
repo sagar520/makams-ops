@@ -2,15 +2,15 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Pencil, FileText, Eye, Trash2, CheckCircle2, XCircle, Link2, Copy, GraduationCap,
+  Pencil, FileText, Eye, Trash2, CheckCircle2, XCircle, GraduationCap,
   Upload, Plus, ListChecks, ShieldCheck, ShieldOff, MailPlus,
 } from 'lucide-react'
-import { supabase, callFunction, portalUrl } from '../../lib/supabase'
+import { supabase, callFunction } from '../../lib/supabase'
 import {
   PageHeader, Card, Button, Badge, Tabs, Modal, Field, Input, Select, Textarea, Checkbox,
   Info, FullPageSpinner, EmptyState, useToast, cx,
 } from '../../components/ui'
-import { DOC_TYPES, docTypeLabel, PROFILE_FIELDS, peopleStatusMeta } from '../../lib/constants'
+import { DOC_TYPES, docTypeLabel, peopleStatusMeta, salesRoleLabel } from '../../lib/constants'
 import { fmtDate, fmtDateTime, inr } from '../../lib/format'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -40,7 +40,7 @@ export default function PersonDetail() {
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
           <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
           {person.emp_code && <Badge tone="slate">{person.emp_code}</Badge>}
-          {person.designation && <span className="text-sm text-slate-500">{person.designation}{person.department ? ` · ${person.department}` : ''}</span>}
+          <span className="text-sm text-slate-500">{salesRoleLabel(person.sales_role)}{person.hq_name ? ` · ${person.hq_name}` : ''}</span>
         </div>
       </PageHeader>
 
@@ -71,9 +71,10 @@ function ProfileTab({ person: p }) {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card title="Job">
         <dl className="grid grid-cols-2 gap-x-4 gap-y-4">
-          <Info label="Department">{p.department}</Info>
-          <Info label="Designation">{p.designation}</Info>
-          <Info label="Location">{p.location}</Info>
+          <Info label="Level">{salesRoleLabel(p.sales_role)}</Info>
+          <Info label="HQ">{p.hq_name}</Info>
+          <Info label="ASM">{p.asm_name}</Info>
+          <Info label="RSM">{p.rsm_name}</Info>
           <Info label="Employment type">{p.employment_type?.replace('_', ' ')}</Info>
           <Info label="Date of joining">{fmtDate(p.date_of_join)}</Info>
           {p.status === 'exited' && <Info label="Date of exit">{fmtDate(p.date_of_exit)}</Info>}
@@ -129,7 +130,6 @@ const docStatusMeta = {
 function DocumentsTab({ person }) {
   const qc = useQueryClient()
   const toast = useToast()
-  const [requestOpen, setRequestOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadType, setUploadType] = useState('other')
   const fileInputId = `doc-upload-${person.id}`
@@ -208,11 +208,10 @@ function DocumentsTab({ person }) {
             Upload
           </Button>
         </div>
-        <Button icon={Link2} onClick={() => setRequestOpen(true)}>Request from {person.full_name.split(' ')[0]}</Button>
       </div>
 
       {!docs.length ? (
-        <EmptyState icon={FileText} title="No documents yet" hint="Upload directly, or send an upload link so they can submit documents themselves." />
+        <EmptyState icon={FileText} title="No documents yet" hint="Pick a document type and upload it against this employee." />
       ) : (
         <Card pad={false}>
           <ul className="divide-y divide-slate-100">
@@ -241,119 +240,7 @@ function DocumentsTab({ person }) {
         </Card>
       )}
 
-      <RequestLinkModal person={person} open={requestOpen} onClose={() => setRequestOpen(false)} />
     </div>
-  )
-}
-
-export function RequestLinkModal({ person, open, onClose }) {
-  const toast = useToast()
-  const qc = useQueryClient()
-  const [docTypes, setDocTypes] = useState(['photo', 'aadhaar', 'pan', 'bank_proof'])
-  const [fields, setFields] = useState(['personal_email', 'phone', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'bank_name', 'bank_account', 'bank_ifsc'])
-  const [message, setMessage] = useState('')
-  const [days, setDays] = useState(14)
-  const [created, setCreated] = useState(null)
-  const [saving, setSaving] = useState(false)
-
-  const toggle = (list, setList, v) => setList(list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
-
-  const create = async () => {
-    if (!docTypes.length && !fields.length) return toast('Pick at least one document or field', 'error')
-    setSaving(true)
-    try {
-      const { data, error } = await supabase
-        .from('upload_links')
-        .insert({
-          person_id: person.id,
-          doc_types: docTypes,
-          profile_fields: fields,
-          message: message || null,
-          expires_at: new Date(Date.now() + days * 86400000).toISOString(),
-        })
-        .select('token')
-        .single()
-      if (error) throw error
-      setCreated(portalUrl(data.token))
-      qc.invalidateQueries({ queryKey: ['upload-links'] })
-    } catch (e) {
-      toast(e.message, 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const copy = async () => {
-    await navigator.clipboard.writeText(created)
-    toast('Link copied')
-  }
-
-  const close = () => {
-    setCreated(null)
-    onClose()
-  }
-
-  return (
-    <Modal open={open} onClose={close} title={`Request details from ${person.full_name}`} size="lg"
-      footer={created ? (
-        <Button onClick={close}>Done</Button>
-      ) : (
-        <>
-          <Button variant="secondary" onClick={close}>Cancel</Button>
-          <Button onClick={create} loading={saving}>Create link</Button>
-        </>
-      )}>
-      {created ? (
-        <div className="space-y-4">
-          <p className="text-sm text-slate-600">Share this link — it works without any login and expires in {days} days.</p>
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <code className="min-w-0 flex-1 truncate text-xs text-slate-700">{created}</code>
-            <Button size="xs" variant="secondary" icon={Copy} onClick={copy}>Copy</Button>
-          </div>
-          <div className="flex gap-2">
-            <a className="text-sm font-medium text-emerald-600 hover:underline" target="_blank" rel="noreferrer"
-              href={`https://wa.me/${(person.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${person.full_name.split(' ')[0]}, please submit your details/documents here: ${created}`)}`}>
-              Share on WhatsApp
-            </a>
-            <a className="text-sm font-medium text-indigo-600 hover:underline"
-              href={`mailto:${person.personal_email || ''}?subject=${encodeURIComponent('Documents needed')}&body=${encodeURIComponent(`Hi ${person.full_name.split(' ')[0]},\n\nPlease submit your details and documents here:\n${created}\n\nThanks`)}`}>
-              Share by email
-            </a>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          <div>
-            <p className="mb-2 text-sm font-medium text-slate-700">Documents to collect</p>
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-              {DOC_TYPES.map((d) => (
-                <Checkbox key={d.value} label={d.label} checked={docTypes.includes(d.value)} onChange={() => toggle(docTypes, setDocTypes, d.value)} />
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="mb-2 text-sm font-medium text-slate-700">Details to fill / confirm</p>
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-              {PROFILE_FIELDS.map((f) => (
-                <Checkbox key={f.value} label={f.label} checked={fields.includes(f.value)} onChange={() => toggle(fields, setFields, f.value)} />
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Message shown on the page">
-              <Textarea rows={2} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Welcome to Makams! Please submit these before your joining date." />
-            </Field>
-            <Field label="Link valid for">
-              <Select value={days} onChange={(e) => setDays(Number(e.target.value))}>
-                <option value={7}>7 days</option>
-                <option value={14}>14 days</option>
-                <option value={30}>30 days</option>
-              </Select>
-            </Field>
-          </div>
-        </div>
-      )}
-    </Modal>
   )
 }
 
@@ -504,12 +391,12 @@ function LearnappTab({ person }) {
     },
   })
 
-  const email = person.learnapp_email || person.work_email || person.personal_email
+  const empId = person.emp_code
 
   const run = async (action, extra = {}) => {
     setBusy(action)
     try {
-      const res = await callFunction('learnapp-admin', { action, person_id: person.id, email, full_name: person.full_name, ...extra })
+      const res = await callFunction('learnapp-admin', { action, person_id: person.id, full_name: person.full_name, ...extra })
       if (res?.password) setPassword(res.password)
       toast(res?.message || 'Done')
       qc.invalidateQueries({ queryKey: ['person', person.id] })
@@ -530,16 +417,15 @@ function LearnappTab({ person }) {
             {person.learnapp_status === 'active' && <Badge tone="green">Active</Badge>}
             {person.learnapp_status === 'disabled' && <Badge tone="gray">Disabled</Badge>}
             {!person.learnapp_status && <Badge tone="amber">No account</Badge>}
-            <p className="mt-1 text-xs text-slate-400">{person.learnapp_email || (person.learnapp_status ? '' : `Will use: ${email || 'no email on file'}`)}</p>
+            <p className="mt-1 text-xs text-slate-400">
+              {person.learnapp_user_id ? `Login: ${empId}` : empId ? `Login will be their Employee ID: ${empId}` : ''}
+            </p>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
           {!person.learnapp_user_id && (
-            <>
-              <Button icon={MailPlus} loading={busy === 'invite'} disabled={!email} onClick={() => run('invite')}>Invite by email</Button>
-              <Button variant="secondary" icon={Plus} loading={busy === 'create'} disabled={!email} onClick={() => run('create')}>Create with password</Button>
-            </>
+            <Button icon={Plus} loading={busy === 'create'} disabled={!empId} onClick={() => run('create')}>Create learnapp login</Button>
           )}
           {person.learnapp_user_id && person.learnapp_status === 'active' && (
             <Button variant="dangerSubtle" icon={ShieldOff} loading={busy === 'disable'} onClick={() => run('disable')}>Disable access</Button>
@@ -548,14 +434,14 @@ function LearnappTab({ person }) {
             <Button variant="secondary" icon={ShieldCheck} loading={busy === 'enable'} onClick={() => run('enable')}>Re-enable access</Button>
           )}
         </div>
-        {!email && !person.learnapp_user_id && (
-          <p className="mt-3 text-xs text-amber-600">Add an email on the profile first.</p>
+        {!empId && !person.learnapp_user_id && (
+          <p className="mt-3 text-xs text-amber-600">Set an Employee ID on the profile first — it becomes their learnapp login.</p>
         )}
 
         {password && (
           <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <p className="text-xs font-medium text-amber-800">Temporary password — share it now, it won't be shown again:</p>
-            <code className="mt-1 block text-sm font-semibold text-amber-900">{password}</code>
+            <p className="text-xs font-medium text-amber-800">Share these with {person.full_name.split(' ')[0]} — the password won't be shown again:</p>
+            <code className="mt-1 block text-sm font-semibold text-amber-900">Login: {empId} · Password: {password}</code>
           </div>
         )}
       </Card>

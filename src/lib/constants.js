@@ -43,12 +43,33 @@ export const PROFILE_FIELDS = [
 
 export const profileFieldLabel = (v) => PROFILE_FIELDS.find((f) => f.value === v)?.label || v
 
+export const SALES_ROLES = [
+  { value: 'sales', label: 'Sales Rep' },
+  { value: 'asm', label: 'ASM (Area Sales Manager)' },
+  { value: 'rsm', label: 'RSM (Regional Sales Manager)' },
+  { value: 'head_office', label: 'Head Office' },
+]
+
+export const salesRoleLabel = (v) => ({ sales: 'Sales Rep', asm: 'ASM', rsm: 'RSM', head_office: 'Head Office' }[v] || v || '—')
+
 export const PEOPLE_STATUS = [
   { value: 'joining', label: 'Joining soon', tone: 'blue' },
   { value: 'active', label: 'Active', tone: 'green' },
   { value: 'exited', label: 'Exited', tone: 'gray' },
   { value: 'not_joined', label: 'Not joined', tone: 'amber' },
 ]
+
+export const PROSPECTIVE_STATUS = [
+  { value: 'new', label: 'New', tone: 'blue' },
+  { value: 'contacted', label: 'Contacted', tone: 'indigo' },
+  { value: 'interested', label: 'Interested', tone: 'violet' },
+  { value: 'interview_scheduled', label: 'Interview Scheduled', tone: 'amber' },
+  { value: 'offer_letter_sent', label: 'Offer Letter Sent', tone: 'green' },
+  { value: 'joined', label: 'Joined', tone: 'green' },
+  { value: 'rejected', label: 'Rejected', tone: 'red' },
+]
+
+export const prospectiveStatusMeta = (v) => PROSPECTIVE_STATUS.find((s) => s.value === v) || { label: v, tone: 'gray' }
 
 export const CANDIDATE_STATUS = [
   { value: 'new', label: 'New', tone: 'blue' },
