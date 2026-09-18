@@ -36,12 +36,14 @@ async function clickTabAndExpect(tabSelector, text, label) {
   console.log(`FAIL  ${label} — did not find "${text}"`)
 }
 
-// 1. Dashboard
+// 1. No dashboard: "/" lands on the first module the account can open
 await page.goto(`${BASE}/#/`, { waitUntil: 'networkidle' })
-await expectText('Hi Aakash', 'dashboard renders')
-await expectText('Prospectives open', 'HR stats show prospectives')
-await expectText('Waiting on your approval', 'approvals card renders')
-await expectText('PO/26-27/0005', 'pending PO (step 2 = me) listed on dashboard')
+await expectText('The active hiring sheet', 'root lands on Prospectives')
+{
+  const nav = await page.locator('nav, aside').first().innerText()
+  if (!/overview/i.test(nav)) console.log('PASS  Overview removed from the sidebar')
+  else { failed++; console.log('FAIL  Overview still in the sidebar') }
+}
 
 // 2. Employees (sales-only)
 await page.goto(`${BASE}/#/people`)
@@ -72,9 +74,20 @@ await expectText('Sandeep Walia', 'prospectives sheet renders')
 }
 console.log('PASS  prospective status changed inline')
 {
+  // whole row is tinted by status (switch to Everyone so a rejected row is visible)
+  await page.locator('div.mb-4 select').first().selectOption('all')
+  await page.waitForTimeout(400)
+  const rowCls = await page.locator('tr', { hasText: 'Sahil Chopra' }).first().getAttribute('class')  // rejected
+  const openCls = await page.locator('tr', { hasText: 'Sandeep Walia' }).first().getAttribute('class') // contacted
+  if (/bg-slate-/.test(rowCls || '') && /bg-red-/.test(openCls || '')) console.log('PASS  rows tinted by status')
+  else { failed++; console.log(`FAIL  rows tinted by status (rejected=${rowCls} contacted=${openCls})`) }
+  await page.locator('div.mb-4 select').first().selectOption('open')
+  await page.waitForTimeout(400)
+}
+{
   // status dropdown is colour-coded
   const cls = await page.locator('tr', { hasText: 'Jaspreet Brar' }).locator('select').getAttribute('class')
-  if (cls && /bg-(sky|indigo|violet|amber|emerald|red)-/.test(cls)) console.log('PASS  status dropdown colour-coded')
+  if (cls && /bg-(red|slate|white)/.test(cls)) console.log('PASS  status dropdown colour-coded')
   else { failed++; console.log(`FAIL  status dropdown colour-coded (class=${cls})`) }
 }
 {
@@ -151,6 +164,16 @@ await expectText('In Prospectives', 'picked candidates flagged')
 console.log('PASS  add-to-prospectives works')
 await page.goto(`${BASE}/#/prospectives`)
 await expectText('Mohit Saini', 'copied row appears on the sheet')
+
+{
+  // candidates now come from the Google Sheet
+  await page.goto(`${BASE}/#/candidates`)
+  await page.click('button:has-text("Import from sheet")')
+  await page.waitForSelector('text=Import candidates from Google Sheet', { timeout: 8000 })
+  await expectText('Master Sheet', 'sheet import names the tab')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(300)
+}
 
 // 6. Referral links tab
 await page.goto(`${BASE}/#/candidates`)
@@ -291,6 +314,11 @@ await page.goto(`${BASE}/#/settings`)
 await clickTabAndExpect('button:has-text("Forms")', 'Candidate referral form', 'forms tab lists referral form')
 await page.click('button:has-text("New form")')
 await expectText('Add field', 'form builder opens')
+{
+  const kinds = await page.locator('label:has-text("Type") select').innerText()
+  if (!/intake/i.test(kinds)) console.log('PASS  candidate-intake form type removed')
+  else { failed++; console.log('FAIL  candidate-intake form type still offered') }
+}
 await page.keyboard.press('Escape')
 await clickTabAndExpect('button:has-text("Checklists")', 'Standard onboarding', 'checklists managed in settings')
 

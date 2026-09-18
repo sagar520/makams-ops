@@ -60,26 +60,38 @@ export const PEOPLE_STATUS = [
 ]
 
 export const PROSPECTIVE_STATUS = [
-  { value: 'new', label: 'New', tone: 'blue' },
+  { value: 'new', label: 'New', tone: 'gray' },
   { value: 'contacted', label: 'Contacted', tone: 'indigo' },
   { value: 'interested', label: 'Interested', tone: 'violet' },
-  { value: 'interview_scheduled', label: 'Interview Scheduled', tone: 'amber' },
-  { value: 'offer_letter_sent', label: 'Offer Letter Sent', tone: 'green' },
-  { value: 'joined', label: 'Joined', tone: 'green' },
-  { value: 'rejected', label: 'Rejected', tone: 'red' },
+  { value: 'interview_scheduled', label: 'Interview Scheduled', tone: 'red' },
+  { value: 'offer_letter_sent', label: 'Offer Letter Sent', tone: 'red' },
+  { value: 'joined', label: 'Joined', tone: 'blue' },
+  { value: 'rejected', label: 'Rejected', tone: 'gray' },
 ]
 
 export const prospectiveStatusMeta = (v) => PROSPECTIVE_STATUS.find((s) => s.value === v) || { label: v, tone: 'gray' }
 
-// colours for the inline status dropdown on the Prospectives sheet
+// The pipeline reads as a ramp: neutral at the start, deepening red as it
+// warms up, black once they've joined, and faded out when rejected.
 export const PROSPECTIVE_STATUS_CLS = {
-  new: 'border-sky-200 bg-sky-50 text-sky-800',
-  contacted: 'border-indigo-200 bg-indigo-50 text-indigo-800',
-  interested: 'border-violet-200 bg-violet-50 text-violet-800',
-  interview_scheduled: 'border-amber-200 bg-amber-50 text-amber-800',
-  offer_letter_sent: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-  joined: 'border-emerald-300 bg-emerald-100 text-emerald-900 font-semibold',
-  rejected: 'border-red-200 bg-red-50 text-red-800',
+  new: 'border-slate-300 bg-white text-slate-700',
+  contacted: 'border-red-200 bg-red-50 text-red-800',
+  interested: 'border-red-300 bg-red-100 text-red-900',
+  interview_scheduled: 'border-red-400 bg-red-200 text-red-900',
+  offer_letter_sent: 'border-red-600 bg-red-600 text-white',
+  joined: 'border-slate-900 bg-slate-900 text-white',
+  rejected: 'border-slate-200 bg-slate-100 text-slate-400',
+}
+
+// row tint — the same ramp, a few shades lighter
+export const PROSPECTIVE_ROW_CLS = {
+  new: 'bg-white hover:bg-slate-50',
+  contacted: 'bg-red-50/50 hover:bg-red-50',
+  interested: 'bg-red-50 hover:bg-red-100/70',
+  interview_scheduled: 'bg-red-100/70 hover:bg-red-100',
+  offer_letter_sent: 'bg-red-100 hover:bg-red-200/70',
+  joined: 'bg-slate-100 hover:bg-slate-200/70',
+  rejected: 'bg-slate-50/70 hover:bg-slate-100',
 }
 
 export const PROSPECTIVE_SOURCES = ['LI / Indeed', 'Internal Referral', 'Other']
@@ -107,17 +119,6 @@ export const FORM_FIELD_TYPES = [
   { value: 'file', label: 'File upload' },
 ]
 
-export const FORM_MAP_TO = [
-  { value: '', label: 'Nothing (stored with the response only)' },
-  { value: 'full_name', label: 'Candidate name' },
-  { value: 'title', label: 'Title / role' },
-  { value: 'organization', label: 'Organisation' },
-  { value: 'email', label: 'Email' },
-  { value: 'phone', label: 'Phone' },
-  { value: 'location', label: 'Location' },
-  { value: 'notes', label: 'Notes' },
-  { value: 'resume', label: 'Resume (file fields only)' },
-]
 
 export const peopleStatusMeta = (v) => PEOPLE_STATUS.find((s) => s.value === v) || { label: v, tone: 'gray' }
 

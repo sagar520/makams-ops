@@ -394,7 +394,7 @@ function ApprovalRulesCard() {
                     r.max_amount != null ? `${inr(r.min_amount)} – ${inr(r.max_amount)}` : Number(r.min_amount) > 0 ? `Above ${inr(r.min_amount)}` : 'Any amount',
                   ].join(' · ')}
                 </p>
-                <p className="mt-0.5 text-xs text-indigo-600">
+                <p className="mt-0.5 text-xs text-red-600">
                   {r.approval_rule_steps.length
                     ? r.approval_rule_steps.map((s, i) => `${i + 1}. ${s.approver?.full_name || s.approver?.email}`).join(' → ')
                     : 'Auto-approves (no steps)'}
@@ -593,7 +593,7 @@ function IntegrationsTab() {
 
       <Card title="CRIL learnapp">
         <div className="flex items-start gap-3">
-          <GraduationCap className="mt-0.5 h-6 w-6 text-indigo-600" />
+          <GraduationCap className="mt-0.5 h-6 w-6 text-red-600" />
           <div className="text-sm text-slate-600">
             <p>Create, disable and re-enable learnapp accounts from each person's Learnapp tab. Actions run against the learnapp's own Supabase project.</p>
             <p className="mt-1 text-xs text-slate-400">Configured via edge-function secrets: LEARNAPP_URL, LEARNAPP_SERVICE_ROLE_KEY — see the README.</p>

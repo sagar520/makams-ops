@@ -86,7 +86,7 @@ export default function Approvals() {
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link to={`/pos/${po.id}`} className="text-sm font-semibold text-slate-900 hover:text-indigo-600">{po.po_number}</Link>
+                      <Link to={`/pos/${po.id}`} className="text-sm font-semibold text-slate-900 hover:text-red-600">{po.po_number}</Link>
                       <Badge tone="amber">Step {s.position}</Badge>
                       <span className="text-xs text-slate-400">submitted {fmtDateTime(po.submitted_at)}</span>
                     </div>
@@ -117,7 +117,7 @@ export default function Approvals() {
             {history.map((h) => (
               <li key={h.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                 {h.status === 'approved' ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
-                <Link to={`/pos/${h.purchase_orders?.id}`} className="font-medium text-slate-800 hover:text-indigo-600">{h.purchase_orders?.po_number}</Link>
+                <Link to={`/pos/${h.purchase_orders?.id}`} className="font-medium text-slate-800 hover:text-red-600">{h.purchase_orders?.po_number}</Link>
                 <span className="text-slate-500">{h.purchase_orders?.vendors?.name}</span>
                 <span className="ml-auto text-slate-500">{inr(h.purchase_orders?.grand_total)}</span>
                 <span className="w-32 text-right text-xs text-slate-400">{fmtDateTime(h.acted_at)}</span>

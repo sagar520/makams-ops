@@ -6,7 +6,7 @@ import {
   PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, Select, Input,
   Field, Modal, EmptyState, FullPageSpinner, useToast, cx,
 } from '../../components/ui'
-import { PROSPECTIVE_STATUS, PROSPECTIVE_SOURCES, PROSPECTIVE_STATUS_CLS, prospectiveStatusMeta } from '../../lib/constants'
+import { PROSPECTIVE_STATUS, PROSPECTIVE_SOURCES, PROSPECTIVE_STATUS_CLS, PROSPECTIVE_ROW_CLS, prospectiveStatusMeta } from '../../lib/constants'
 import { fmtDate } from '../../lib/format'
 
 export default function Prospectives() {
@@ -115,9 +115,9 @@ export default function Prospectives() {
           </thead>
           <tbody>
             {filtered.map((r) => (
-              <Tr key={r.id}>
-                <Td className="font-medium text-slate-900">
-                  <button className="hover:text-indigo-600" onClick={() => setEditing(r)}>{r.full_name}</button>
+              <Tr key={r.id} className={PROSPECTIVE_ROW_CLS[r.status]}>
+                <Td className={cx('font-medium', r.status === 'rejected' ? 'text-slate-500 line-through' : 'text-slate-900')}>
+                  <button className="hover:text-red-600" onClick={() => setEditing(r)}>{r.full_name}</button>
                   {r.candidate_id && <Badge tone="slate" className="ml-2">from DB</Badge>}
                 </Td>
                 <Td>{r.designation || '—'}</Td>
@@ -265,7 +265,7 @@ function ProspectiveModal({ row, onClose }) {
           ) : existing ? (
             <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
               <Paperclip className="h-4 w-4 shrink-0 text-slate-400" />
-              <button className="min-w-0 flex-1 truncate text-left hover:text-indigo-600" onClick={openExisting}>
+              <button className="min-w-0 flex-1 truncate text-left hover:text-red-600" onClick={openExisting}>
                 {existing.name || 'Resume on file'}
               </button>
               <button className="text-slate-400 hover:text-red-600" title="Remove on save" onClick={() => setExisting(null)}>
@@ -273,7 +273,7 @@ function ProspectiveModal({ row, onClose }) {
               </button>
             </div>
           ) : (
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-sm text-slate-500 transition-colors hover:border-indigo-400 hover:bg-indigo-50/30">
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-sm text-slate-500 transition-colors hover:border-red-400 hover:bg-red-50/30">
               <Upload className="h-4 w-4 shrink-0" />
               <span>Attach a resume</span>
               <input type="file" className="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={pickResume} />

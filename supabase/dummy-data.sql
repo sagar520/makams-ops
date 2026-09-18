@@ -98,9 +98,9 @@ insert into public.sheet_sync_log (status, rows, detail, created_by, created_at)
   ('ok', 18, null, '10000000-0000-4000-8000-000000000001', '2026-09-05 10:15:00+05:30'),
   ('ok', 19, null, '10000000-0000-4000-8000-000000000001', '2026-09-12 10:15:00+05:30');
 
-insert into public.form_links (id, form_id, token, source_name, active, submission_count, created_by, created_at) values
-  ('30000000-0000-4000-8000-000000000032', (select id from public.form_templates where kind='candidate_intake' limit 1), 'dummy-src-ramesh', 'Consultant Ramesh — TalentBridge', true, 5, '10000000-0000-4000-8000-000000000001', '2026-07-04 10:15:00+05:30'),
-  ('30000000-0000-4000-8000-000000000033', (select id from public.form_templates where kind='candidate_intake' limit 1), 'dummy-src-campus', 'Campus cell — GNDU Amritsar', true, 1, '10000000-0000-4000-8000-000000000001', '2026-07-29 10:15:00+05:30');
+insert into public.form_links (id, form_id, token, source_name, referrer_name, referrer_phone, expires_at, active, submission_count, created_by, created_at) values
+  ('30000000-0000-4000-8000-000000000032', (select id from public.form_templates where kind='referral' limit 1), 'dummy-src-ramesh', 'Ramesh Kumar (TalentBridge)', 'Ramesh Kumar (TalentBridge)', '+919815000110', now() + interval '5 days', true, 5, '10000000-0000-4000-8000-000000000001', '2026-07-04 10:15:00+05:30'),
+  ('30000000-0000-4000-8000-000000000033', (select id from public.form_templates where kind='referral' limit 1), 'dummy-src-campus', 'Campus cell — GNDU Amritsar', 'Campus cell — GNDU Amritsar', null, now() + interval '6 days', true, 1, '10000000-0000-4000-8000-000000000001', '2026-07-29 10:15:00+05:30');
 
 insert into public.candidates (id, full_name, designation, current_company, email, phone, area, status, source, link_id, resume_name, hr_comment, created_by, created_at, updated_at) values
   ('31000000-0000-4000-8000-000000000034', 'Ankit Malhotra', 'QA Manager', 'Patanjali Foods', 'ankit.m@example.com', '98100 20000', 'Ludhiana', 'interview', 'Consultant Ramesh — TalentBridge', '30000000-0000-4000-8000-000000000032', 'Ankit_Malhotra_CV.pdf', 'Strong on GMP documentation.', '10000000-0000-4000-8000-000000000001', '2026-09-01 10:15:00+05:30', '2026-09-04 10:15:00+05:30'),
@@ -119,7 +119,7 @@ insert into public.candidates (id, full_name, designation, current_company, emai
   ('31000000-0000-4000-8000-000000000047', 'Tanvi Deshmukh', 'Purchase Executive', 'Alchem International', 'tanvi.d@example.com', '98113 21781', 'Ludhiana', 'new', 'LinkedIn outreach', null, null, null, '10000000-0000-4000-8000-000000000001', '2026-09-13 10:15:00+05:30', '2026-09-16 10:15:00+05:30');
 
 insert into public.form_responses (form_id, link_id, answers, candidate_id, created_at)
-select (select id from public.form_templates where kind='candidate_intake' limit 1), c.link_id,
+select (select id from public.form_templates where kind='referral' limit 1), c.link_id,
        jsonb_build_object('full_name', c.full_name, 'title', c.designation, 'organization', c.current_company, 'phone', c.phone, 'location', c.area),
        c.id, c.created_at
   from public.candidates c where c.link_id is not null;

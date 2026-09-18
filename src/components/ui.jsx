@@ -8,7 +8,7 @@ export function cx(...args) {
 /* ---------------- Buttons ---------------- */
 
 const btnVariants = {
-  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm disabled:bg-indigo-300',
+  primary: 'bg-red-600 text-white hover:bg-red-700 shadow-sm disabled:bg-red-300',
   secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 shadow-sm disabled:text-slate-400',
   danger: 'bg-red-600 text-white hover:bg-red-700 shadow-sm disabled:bg-red-300',
   dangerSubtle: 'bg-white text-red-600 border border-red-200 hover:bg-red-50 disabled:text-red-300',
@@ -27,7 +27,7 @@ export function Button({ variant = 'primary', size = 'md', loading, icon: Icon, 
       type={type}
       className={cx(
         'inline-flex items-center justify-center rounded-lg font-medium transition-colors select-none',
-        'disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500',
+        'disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500',
         btnVariants[variant],
         btnSizes[size],
         className
@@ -45,7 +45,7 @@ export function Button({ variant = 'primary', size = 'md', loading, icon: Icon, 
 
 const controlCls =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ' +
-  'focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-500'
+  'focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-100 disabled:bg-slate-50 disabled:text-slate-500'
 
 export const Input = forwardRef(function Input({ className, ...rest }, ref) {
   return <input ref={ref} className={cx(controlCls, className)} {...rest} />
@@ -81,7 +81,7 @@ export function Field({ label, hint, error, required, children, className }) {
 export function Checkbox({ label, hint, className, ...rest }) {
   return (
     <label className={cx('flex cursor-pointer items-start gap-2.5', className)}>
-      <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" {...rest} />
+      <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500" {...rest} />
       <span className="text-sm text-slate-700">
         {label}
         {hint && <span className="block text-xs text-slate-400">{hint}</span>}
@@ -115,15 +115,17 @@ export function SearchInput({ value, onChange, placeholder = 'Search…', classN
 
 /* ---------------- Badges ---------------- */
 
+// Red / black / white. `green` and `amber` stay semantic: on a purchase
+// order, "approved" and "rejected" must not look the same colour.
 const badgeTones = {
   gray: 'bg-slate-100 text-slate-600',
   slate: 'bg-slate-200 text-slate-700',
   green: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
-  red: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+  red: 'bg-red-600 text-white',
   amber: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
-  blue: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200',
-  indigo: 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200',
-  violet: 'bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-200',
+  blue: 'bg-slate-900 text-white',
+  indigo: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+  violet: 'bg-red-100 text-red-800 ring-1 ring-inset ring-red-200',
 }
 
 export function Badge({ tone = 'gray', className, children }) {
@@ -217,7 +219,7 @@ export function Tr({ className, onClick, children }) {
   return (
     <tr
       onClick={onClick}
-      className={cx('last:[&>td]:border-b-0', onClick && 'cursor-pointer transition-colors hover:bg-indigo-50/40', className)}
+      className={cx('last:[&>td]:border-b-0', onClick && 'cursor-pointer transition-colors hover:bg-red-50/40', className)}
     >
       {children}
     </tr>
@@ -241,7 +243,7 @@ export function Tabs({ tabs, value, onChange, className }) {
         >
           {t.label}
           {t.count != null && (
-            <span className={cx('ml-1.5 rounded-full px-1.5 py-0.5 text-[11px]', value === t.value ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-300/60 text-slate-600')}>
+            <span className={cx('ml-1.5 rounded-full px-1.5 py-0.5 text-[11px]', value === t.value ? 'bg-red-100 text-red-700' : 'bg-slate-300/60 text-slate-600')}>
               {t.count}
             </span>
           )}

@@ -12,8 +12,8 @@ DB to Prospectives, onboarding/exit checklists, one-way sync **to** the employee
 Sheet, and learnapp account management (create login = Employee ID + password,
 disable/enable on exit).
 
-**Admin**: manages users/roles, the jotform-style **form builder** (candidate-intake
-and general forms), checklist templates, PO types/locations/approval rules, and company
+**Admin**: manages users/roles, the jotform-style **form builder** (referral and
+general forms), checklist templates, PO types/locations/approval rules, and company
 settings. HR and Purchase roles each see only their own module.
 
 **Purchase**: vendors, purchase orders with a configurable approval matrix
@@ -53,7 +53,7 @@ Never set `VITE_DEMO` on the real deployment.
    first sign-in.
 3. Run the migrations, either way:
    - **Dashboard**: SQL Editor → paste and run `0001_core.sql`, `0002_hr.sql`,
-     `0003_purchase.sql`, … through `0011_prospective_resume.sql` **in order** (or paste the
+     `0003_purchase.sql`, … through `0012_candidate_sheet.sql` **in order** (or paste the
      combined `supabase/makams-ops-schema.sql` once).
    - **CLI**: `supabase link --project-ref <ref>` then `supabase db push`.
 
@@ -95,7 +95,8 @@ Four functions live in `supabase/functions/`:
 | Function | Purpose | Secrets it needs |
 |---|---|---|
 | `send-po` | Emails the PO PDF to vendors via Resend, logs sends | `RESEND_API_KEY`, `PO_FROM_EMAIL` |
-| `public-form` | Receives form submissions (candidate intake etc.) from `/f/:token` pages | — |
+| `public-form` | Receives referral-form submissions from `/f/:token` pages | — |
+| `import-candidates` | Pulls the Candidates DB from the Google Sheet tab | `GOOGLE_SERVICE_ACCOUNT` |
 | `sync-sheet` | Overwrites the employee tab in your Google Sheet from the app | `GOOGLE_SERVICE_ACCOUNT`, `SHEET_ID`, `SHEET_TAB` |
 | `learnapp-admin` | Creates/disables learnapp accounts (Employee-ID login) | `LEARNAPP_URL`, `LEARNAPP_SERVICE_ROLE_KEY`, `LEARNAPP_EMAIL_DOMAIN` (optional) |
 
@@ -103,6 +104,7 @@ Deploy (needs the [Supabase CLI](https://supabase.com/docs/guides/cli), logged i
 
 ```bash
 supabase functions deploy send-po
+supabase functions deploy import-candidates
 supabase functions deploy sync-sheet
 supabase functions deploy learnapp-admin
 supabase functions deploy public-form --no-verify-jwt   # public by design; every request is validated against the link token
@@ -218,6 +220,12 @@ set — you can go live without them and add them later.
   through `save_candidate` / `pick_candidate` / `delete_candidate`. An HR user with
   the anon key and a REST client sees exactly what the UI shows them: nothing, until
   they name an area.
+- **Where candidates come from**: two routes, both landing in the same DB — the
+  **referral links** above, and an **import from the Google Sheet** HR maintains
+  (Candidates DB → Import from sheet). The import reads the header row and matches
+  columns by name, so the sheet needs no particular layout; rows are matched on phone
+  (then name), so re-importing updates instead of duplicating, and a **dry run** reports
+  what would change before anything is written. The old candidate-intake form is gone.
 - **Forms**: admin-only builder, jotform-style — add fields (text, paragraph, email,
   phone, number, date, dropdown, file), mark required, reorder, live preview.
   Candidate-intake forms map fields into the candidate database; general forms just

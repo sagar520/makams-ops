@@ -171,7 +171,7 @@ export default function ImportPeople() {
 
       {!rows ? (
         <Card>
-          <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 px-6 py-14 text-center transition-colors hover:border-indigo-400 hover:bg-indigo-50/30">
+          <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 px-6 py-14 text-center transition-colors hover:border-red-400 hover:bg-red-50/30">
             <Upload className="mb-3 h-8 w-8 text-slate-300" />
             <p className="text-sm font-medium text-slate-600">Choose a CSV file</p>
             <p className="mt-1 text-xs text-slate-400">First row must be column headers</p>

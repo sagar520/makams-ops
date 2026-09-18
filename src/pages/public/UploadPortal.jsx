@@ -100,15 +100,15 @@ export default function UploadPortal() {
 
   return (
     <div className="min-h-screen bg-slate-100 pb-16">
-      <div className="bg-indigo-600 pb-16 pt-10 text-center text-white">
-        <p className="text-xs font-medium uppercase tracking-widest text-indigo-200">{info.company}</p>
+      <div className="bg-red-600 pb-16 pt-10 text-center text-white">
+        <p className="text-xs font-medium uppercase tracking-widest text-red-200">{info.company}</p>
         <h1 className="mt-1 px-4 text-xl font-semibold">Hi {info.person_name?.split(' ')[0]} 👋</h1>
-        <p className="mt-1 px-6 text-sm text-indigo-100">Please complete the items below. No login needed.</p>
+        <p className="mt-1 px-6 text-sm text-red-100">Please complete the items below. No login needed.</p>
       </div>
 
       <div className="mx-auto -mt-10 w-full max-w-lg space-y-4 px-4">
         {info.message && (
-          <div className="rounded-xl border border-indigo-100 bg-white p-4 text-sm text-slate-600 shadow-sm">{info.message}</div>
+          <div className="rounded-xl border border-red-100 bg-white p-4 text-sm text-slate-600 shadow-sm">{info.message}</div>
         )}
 
         {error && (
@@ -130,7 +130,7 @@ export default function UploadPortal() {
                   <span className={cx('flex-1 text-sm', d.uploaded ? 'text-slate-400' : 'text-slate-700')}>{docTypeLabel(d.doc_type)}</span>
                   <label className={cx(
                     'inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium',
-                    d.uploaded ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    d.uploaded ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-red-600 text-white hover:bg-red-700'
                   )}>
                     {uploadingType === d.doc_type
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin" />

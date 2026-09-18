@@ -114,7 +114,7 @@ export default function PeopleList() {
             {filtered.map((p) => (
               <Tr key={p.id} onClick={() => navigate(`/people/${p.id}`)}>
                 <Td className="font-medium text-slate-900">
-                  <Link to={`/people/${p.id}`} onClick={(e) => e.stopPropagation()} className="hover:text-indigo-600">
+                  <Link to={`/people/${p.id}`} onClick={(e) => e.stopPropagation()} className="hover:text-red-600">
                     {p.full_name}
                   </Link>
                 </Td>

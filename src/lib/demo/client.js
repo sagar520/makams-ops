@@ -747,27 +747,29 @@ async function invokeFunction(name, body = {}) {
     const response = { ...insertDefaults.form_responses(), form_id: tpl.id, link_id: link.id, answers: clean, files }
     store.form_responses.unshift(response)
 
-    if (tpl.kind === 'candidate_intake') {
-      const mapped = {}
-      for (const f of tpl.fields) {
-        if (!f.map_to || f.type === 'file') continue
-        if (clean[f.key] != null) mapped[f.map_to] = clean[f.key]
-      }
-      const resumeField = tpl.fields.find((f) => f.type === 'file' && f.map_to === 'resume')
-      const resume = resumeField ? files.find((x) => x.key === resumeField.key) : null
-      if (mapped.full_name) {
-        store.referral_submissions.unshift({
-          ...insertDefaults.referral_submissions(),
-          full_name: mapped.full_name, designation: mapped.title || null, current_company: mapped.organization || null,
-          phone: mapped.phone || null, area: mapped.location || null,
-          referred_by_name: link.source_name, referrer_emp_id: null, referrer_phone: null,
-          source: link.source_name, link_id: link.id, response_id: response.id,
-        })
-      }
-    }
-
     link.submission_count = (link.submission_count || 0) + 1
     return { ok: true }
+  }
+
+  if (name === 'import-candidates') {
+    // demo: pretend the sheet had a couple of new rows
+    const added = body.dry_run ? 0 : 2
+    if (!body.dry_run) {
+      for (const c of [
+        { full_name: 'Sheet Row — Amit Chawla', phone: '+919812340001', area: 'Ludhiana', designation: 'Sales Officer', current_company: 'Vetcare', referred_by_name: 'Master Sheet' },
+        { full_name: 'Sheet Row — Priti Nanda', phone: '+919812340002', area: 'Patiala', designation: 'Sales Rep', current_company: 'AgriPharma', referred_by_name: 'Master Sheet' },
+      ]) {
+        if (store.candidates.some((x) => x.phone === c.phone)) continue
+        store.candidates.unshift({ ...insertDefaults.candidates(), ...c, source: 'Google Sheet — Master Sheet' })
+      }
+    }
+    return {
+      ok: true, tab: 'Master Sheet', dry_run: !!body.dry_run,
+      matched_columns: ['full_name', 'phone', 'area', 'designation', 'current_company', 'referred_by_name'],
+      scanned: 12,
+      ...(body.dry_run ? { would_add: 2, would_update: 3 } : { added, updated: 3 }),
+      skipped: [{ row: 7, name: '', reason: 'no name' }],
+    }
   }
 
   return { error: `Unknown function ${name}` }

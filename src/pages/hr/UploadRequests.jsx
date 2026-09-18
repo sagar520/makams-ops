@@ -77,7 +77,7 @@ export default function UploadRequests() {
               return (
                 <Tr key={l.id}>
                   <Td className="font-medium">
-                    <Link to={`/people/${l.people?.id}`} className="text-slate-900 hover:text-indigo-600">{l.people?.full_name}</Link>
+                    <Link to={`/people/${l.people?.id}`} className="text-slate-900 hover:text-red-600">{l.people?.full_name}</Link>
                   </Td>
                   <Td className="max-w-xs">
                     <span className="line-clamp-2 text-xs text-slate-500">{asked.join(', ') || '—'}</span>

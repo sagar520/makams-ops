@@ -4,7 +4,6 @@ import { ToastProvider, FullPageSpinner } from './components/ui'
 import { isConfigured, isDemo } from './lib/supabase'
 import Layout from './components/Layout'
 import Login from './pages/Login'
-import Home from './pages/Home'
 import PeopleList from './pages/hr/PeopleList'
 import PersonDetail from './pages/hr/PersonDetail'
 import PersonForm from './pages/hr/PersonForm'
@@ -69,6 +68,22 @@ function RequireRole({ roles, children }) {
   return hasAnyRole(roles) ? children : <Navigate to="/" replace />
 }
 
+/** No dashboard: "/" sends you to the first page your roles can open. */
+function Landing() {
+  const { hasRole, hasAnyRole } = useAuth()
+  if (hasRole('hr')) return <Navigate to="/prospectives" replace />
+  if (hasAnyRole(['purchase', 'approver'])) return <Navigate to="/pos" replace />
+  if (hasRole('admin')) return <Navigate to="/settings" replace />
+  return (
+    <div className="mx-auto max-w-md py-20 text-center">
+      <h1 className="text-lg font-semibold text-slate-900">No modules yet</h1>
+      <p className="mt-1 text-sm text-slate-500">
+        Your account has no roles assigned. Ask an admin to give you HR or Purchase access.
+      </p>
+    </div>
+  )
+}
+
 function DemoBanner() {
   return (
     <div className="pointer-events-none fixed bottom-4 left-1/2 z-[70] -translate-x-1/2">
@@ -99,7 +114,7 @@ export default function App() {
             <Route path="/f/:token" element={<FormPage />} />
 
             <Route element={<Protected />}>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<Landing />} />
 
               <Route path="/people" element={<RequireRole roles={['hr']}><PeopleList /></RequireRole>} />
               <Route path="/people/new" element={<RequireRole roles={['hr']}><PersonForm /></RequireRole>} />

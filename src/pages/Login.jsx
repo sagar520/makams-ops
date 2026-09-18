@@ -22,7 +22,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="mb-6 flex flex-col items-center text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-xl font-bold text-white">M</div>
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-red-600 text-xl font-bold text-white">M</div>
             <h1 className="text-lg font-semibold text-slate-900">Makams Ops</h1>
             <p className="mt-1 text-sm text-slate-500">HR &amp; Purchase operations</p>
           </div>

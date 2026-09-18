@@ -412,7 +412,7 @@ function LearnappTab({ person }) {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card title="Learnapp account">
         <div className="mb-4 flex items-center gap-3">
-          <GraduationCap className="h-8 w-8 text-indigo-500" />
+          <GraduationCap className="h-8 w-8 text-red-500" />
           <div>
             {person.learnapp_status === 'active' && <Badge tone="green">Active</Badge>}
             {person.learnapp_status === 'disabled' && <Badge tone="gray">Disabled</Badge>}

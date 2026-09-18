@@ -3,8 +3,8 @@
 //   token    — the form link token
 //   answers  — JSON string { fieldKey: value }
 //   file_<fieldKey> — one file per file-type field (resume etc.)
-// Stores files in the private form-uploads bucket, records the response, and
-// for candidate_intake forms creates a row in the candidate database.
+// Stores files in the private form-uploads bucket and records the response.
+// Referral forms additionally queue their contacts for HR review.
 
 import { corsHeaders, json, serviceClient } from '../_shared/utils.ts'
 
@@ -158,33 +158,6 @@ Deno.serve(async (req) => {
     .select('id')
     .single()
   if (respErr) return json({ error: respErr.message }, 500)
-
-  // candidate intake -> create a candidate from mapped fields
-  if (tpl.kind === 'candidate_intake') {
-    const mapped: Record<string, unknown> = {}
-    for (const f of fields) {
-      if (!f.map_to || f.type === 'file') continue
-      const v = clean[f.key]
-      if (v != null && String(v).trim() !== '') mapped[f.map_to] = v
-    }
-    const resumeField = fields.find((f) => f.type === 'file' && f.map_to === 'resume')
-    const resume = resumeField ? files.find((x) => x.key === resumeField.key) : null
-
-    if (mapped.full_name) {
-      // intake forms also go through the review queue
-      await svc.from('referral_submissions').insert({
-        full_name: mapped.full_name,
-        designation: mapped.title ?? null,
-        current_company: mapped.organization ?? null,
-        phone: mapped.phone ?? null,
-        area: mapped.location ?? null,
-        referred_by_name: link.source_name,
-        source: link.source_name,
-        link_id: link.id,
-        response_id: response.id,
-      })
-    }
-  }
 
   await svc.from('form_links').update({ submission_count: (link.submission_count || 0) + 1 }).eq('id', link.id)
 

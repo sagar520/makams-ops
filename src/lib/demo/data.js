@@ -20,6 +20,11 @@ export function buildSeedStore() {
 
   const app_settings = [
     {
+      key: 'candidate_sheet',
+      value: { sheet_id: '1LjZIDyXeDG2pEiS2KGSj8l2Ts-GMwNGAJ1eoFON3Kzc', tab: 'Master Sheet' },
+      updated_at: iso(1),
+    },
+    {
       key: 'company',
       value: {
         name: 'Makams', address: 'Plot 14, Industrial Area Phase 2', city: 'Ludhiana', state: 'Punjab',
@@ -126,7 +131,7 @@ export function buildSeedStore() {
     {
       id: 'ft-intake', name: 'Candidate intake form',
       description: 'Share this with industry sources to add candidates to the Makams talent pool.',
-      kind: 'candidate_intake', active: true, created_at: iso(20), updated_at: iso(20),
+      kind: 'general', active: true, created_at: iso(20), updated_at: iso(20),
       fields: [
         { key: 'full_name', label: 'Candidate full name', type: 'text', required: true, options: [], map_to: 'full_name' },
         { key: 'title', label: 'Current title / role', type: 'text', required: false, options: [], map_to: 'title' },

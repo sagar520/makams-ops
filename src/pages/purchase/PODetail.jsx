@@ -346,14 +346,14 @@ export default function PODetail() {
 function EventIcon({ kind }) {
   const map = {
     created: [FileText, 'text-slate-400'],
-    submitted: [Send, 'text-indigo-500'],
+    submitted: [Send, 'text-red-500'],
     approved_step: [CheckCircle2, 'text-emerald-400'],
     approved: [CheckCircle2, 'text-emerald-500'],
     rejected: [XCircle, 'text-red-500'],
     reopened: [RotateCcw, 'text-slate-400'],
     cancelled: [Ban, 'text-slate-400'],
     closed: [Archive, 'text-slate-400'],
-    sent: [Mail, 'text-indigo-500'],
+    sent: [Mail, 'text-red-500'],
     send_failed: [Mail, 'text-red-500'],
     received: [Truck, 'text-emerald-500'],
     receipt_deleted: [Trash2, 'text-slate-400'],

@@ -1884,4 +1884,27 @@ create policy "prospective resumes hr write" on storage.objects
 create policy "prospective resumes hr delete" on storage.objects
   for delete to authenticated using (bucket_id = 'prospective-resumes' and public.has_role('hr'));
 
+
+-- ============ 0012: candidates from a Google Sheet ============
+-- ============================================================
+-- Makams Ops — 0012: candidates come from a Google Sheet
+--   * the candidate-intake form kind is retired; the Candidates DB
+--     is filled from a sheet tab (and from referral links)
+--   * where that sheet lives is a setting, not a secret
+-- ============================================================
+
+insert into public.app_settings (key, value)
+values ('candidate_sheet', jsonb_build_object(
+  'sheet_id', '1LjZIDyXeDG2pEiS2KGSj8l2Ts-GMwNGAJ1eoFON3Kzc',
+  'tab', 'Master Sheet'
+))
+on conflict (key) do nothing;
+
+-- retire candidate_intake: existing forms become plain general forms
+update public.form_templates set kind = 'general' where kind = 'candidate_intake';
+
+alter table public.form_templates drop constraint if exists form_templates_kind_check;
+alter table public.form_templates add constraint form_templates_kind_check
+  check (kind in ('referral','general'));
+
 select 'Makams Ops schema installed: ' || count(*) || ' tables, admin seeded for ' || (select email from public.app_users limit 1) as result from information_schema.tables where table_schema = 'public';

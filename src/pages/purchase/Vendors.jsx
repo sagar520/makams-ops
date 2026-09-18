@@ -54,7 +54,7 @@ export default function Vendors() {
                 <Td className="text-xs text-slate-500">{v.gstin || '—'}</Td>
                 <Td>{v.state || '—'}</Td>
                 <Td className="text-slate-500">{v.payment_terms || '—'}</Td>
-                <Td right><span className="text-xs text-indigo-600">Edit</span></Td>
+                <Td right><span className="text-xs text-red-600">Edit</span></Td>
               </Tr>
             ))}
           </tbody>

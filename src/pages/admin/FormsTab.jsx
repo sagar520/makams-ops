@@ -6,7 +6,7 @@ import {
   Card, Button, Badge, Modal, Field, Input, Select, Textarea, Checkbox, EmptyState,
   FullPageSpinner, useToast, cx,
 } from '../../components/ui'
-import { FORM_FIELD_TYPES, FORM_MAP_TO } from '../../lib/constants'
+import { FORM_FIELD_TYPES } from '../../lib/constants'
 import { fmtDateTime } from '../../lib/format'
 
 export default function FormsTab() {
@@ -66,7 +66,7 @@ export default function FormsTab() {
                   <p className="text-sm font-semibold text-slate-900">
                     {t.name}
                     <Badge tone={t.kind === 'general' ? 'slate' : 'indigo'} className="ml-2">
-                      {t.kind === 'candidate_intake' ? 'Candidate intake' : t.kind === 'referral' ? 'Referral' : 'General'}
+                      {t.kind === 'referral' ? 'Referral' : 'General'}
                     </Badge>
                     {!t.active && <Badge tone="gray" className="ml-1.5">Inactive</Badge>}
                   </p>
@@ -139,12 +139,9 @@ function FormBuilder({ template, onClose, onSaved }) {
         type: f.type,
         required: !!f.required,
         options: f.type === 'select' ? (Array.isArray(f.options) ? f.options : String(f.options || '').split(',')).map((o) => String(o).trim()).filter(Boolean) : [],
-        map_to: kind === 'candidate_intake' && f.map_to ? f.map_to : null,
+        map_to: null,
       }))
     if (!clean.length) return toast('Add at least one field', 'error')
-    if (kind === 'candidate_intake' && !clean.some((f) => f.map_to === 'full_name')) {
-      return toast('A candidate-intake form needs one field mapped to “Candidate name”', 'error')
-    }
     setSaving(true)
     try {
       const payload = { name: name.trim(), description: description.trim() || null, kind, fields: clean }
@@ -174,10 +171,9 @@ function FormBuilder({ template, onClose, onSaved }) {
             <Field label="Intro text shown to the person filling it" className="sm:col-span-2">
               <Input value={description} onChange={(e) => setDescription(e.target.value)} />
             </Field>
-            <Field label="Type" hint="Referral and intake forms feed the Candidates DB automatically" className="sm:col-span-2">
+            <Field label="Type" hint="Referral forms feed the Candidates DB; everything else just collects responses" className="sm:col-span-2">
               <Select value={kind} onChange={(e) => setKind(e.target.value)}>
-                <option value="referral">Referral (referrer details + candidates table)</option>
-                <option value="candidate_intake">Candidate intake (one candidate per submission)</option>
+                <option value="referral">Referral (referrer details + contacts table)</option>
                 <option value="general">General (responses only)</option>
               </Select>
             </Field>
@@ -211,16 +207,6 @@ function FormBuilder({ template, onClose, onSaved }) {
                         value={Array.isArray(f.options) ? f.options.join(', ') : f.options || ''}
                         onChange={(e) => setField(i, { options: e.target.value })} />
                     )}
-                    {kind === 'candidate_intake' && (
-                      <label className="flex items-center gap-1.5 text-xs text-slate-500">
-                        Fills candidate field:
-                        <Select className="w-48 bg-white py-1 text-xs" value={f.map_to || ''} onChange={(e) => setField(i, { map_to: e.target.value || null })}>
-                          {FORM_MAP_TO.filter((m) => (f.type === 'file' ? ['', 'resume'].includes(m.value) : m.value !== 'resume')).map((m) => (
-                            <option key={m.value} value={m.value}>{m.label}</option>
-                          ))}
-                        </Select>
-                      </label>
-                    )}
                   </div>
                 </div>
               ))}
@@ -234,10 +220,10 @@ function FormBuilder({ template, onClose, onSaved }) {
         <div>
           <p className="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-slate-600"><Eye className="h-3.5 w-3.5" /> Preview</p>
           <div className="rounded-xl border border-slate-200 bg-slate-100 p-4">
-            <div className="rounded-lg bg-indigo-600 px-4 py-4 text-center text-white">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-indigo-200">Makams</p>
+            <div className="rounded-lg bg-red-600 px-4 py-4 text-center text-white">
+              <p className="text-[10px] font-medium uppercase tracking-widest text-red-200">Makams</p>
               <p className="mt-0.5 text-sm font-semibold">{name || 'Untitled form'}</p>
-              {description && <p className="mt-0.5 text-xs text-indigo-100">{description}</p>}
+              {description && <p className="mt-0.5 text-xs text-red-100">{description}</p>}
             </div>
             <div className="mt-3 space-y-3 rounded-lg border border-slate-200 bg-white p-4">
               {fields.filter((f) => f.label.trim()).map((f) => (
@@ -254,7 +240,7 @@ function FormBuilder({ template, onClose, onSaved }) {
                     )}
                 </Field>
               ))}
-              <div className={cx('rounded-lg bg-indigo-600 py-2 text-center text-sm font-medium text-white', !fields.some((f) => f.label.trim()) && 'opacity-40')}>Submit</div>
+              <div className={cx('rounded-lg bg-red-600 py-2 text-center text-sm font-medium text-white', !fields.some((f) => f.label.trim()) && 'opacity-40')}>Submit</div>
             </div>
           </div>
         </div>
@@ -317,7 +303,7 @@ function ResponsesModal({ template, onClose }) {
                 {(r.files || []).map((f) => (
                   <div key={f.key} className="text-sm">
                     <dt className="text-xs text-slate-400">{labelFor(f.key)}</dt>
-                    <dd className="text-indigo-600">{f.name}</dd>
+                    <dd className="text-red-600">{f.name}</dd>
                   </div>
                 ))}
               </dl>

@@ -86,7 +86,7 @@ export default function POList() {
               return (
                 <Tr key={p.id} onClick={() => navigate(`/pos/${p.id}`)}>
                   <Td className="font-medium text-slate-900">
-                    <Link to={`/pos/${p.id}`} onClick={(e) => e.stopPropagation()} className="hover:text-indigo-600">
+                    <Link to={`/pos/${p.id}`} onClick={(e) => e.stopPropagation()} className="hover:text-red-600">
                       {p.po_number || <span className="italic text-slate-400">draft</span>}
                     </Link>
                   </Td>

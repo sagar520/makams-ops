@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import logoUrl from '../assets/logo.png'
 import { NavLink, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
-  LayoutDashboard, Users, ClipboardList, Briefcase, Store, FileText, CheckSquare, Settings as SettingsIcon,
+  Users, ClipboardList, Briefcase, Store, FileText, CheckSquare, Settings as SettingsIcon,
   LogOut, Menu, X,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
@@ -18,7 +19,7 @@ function NavItem({ to, icon: Icon, label, badge, onClick }) {
       className={({ isActive }) =>
         cx(
           'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-          isActive ? 'bg-indigo-600/90 text-white' : 'text-slate-300 hover:bg-slate-700/60 hover:text-white'
+          isActive ? 'bg-red-600/90 text-white' : 'text-slate-300 hover:bg-slate-700/60 hover:text-white'
         )
       }
     >
@@ -60,7 +61,9 @@ export default function Layout({ children }) {
   const nav = (
     <nav className="flex h-full flex-col px-3 pb-4">
       <div className="flex items-center gap-2.5 px-3 py-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">M</div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white p-1">
+          <img src={logoUrl} alt="Cattle Remedies" className="h-full w-full object-contain" />
+        </div>
         <div>
           <p className="text-sm font-semibold leading-tight text-white">Makams Ops</p>
           <p className="text-[11px] leading-tight text-slate-400">HR &amp; Purchase</p>
@@ -71,8 +74,6 @@ export default function Layout({ children }) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <NavItem to="/" icon={LayoutDashboard} label="Overview" onClick={close} />
-
         {hasRole('hr') && (
           <>
             <SectionLabel>HR</SectionLabel>
