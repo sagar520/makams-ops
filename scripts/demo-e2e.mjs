@@ -157,7 +157,7 @@ console.log('PASS  prospective status changed inline')
   else { failed++; console.log('FAIL  source still a sheet column') }
 
   // clicking anywhere on a row opens the full record
-  await page.locator('tr', { hasText: 'Sandeep Walia' }).locator('td').nth(1).click()
+  await page.locator('tr', { hasText: 'Ramanpreet Kaur' }).locator('td').nth(1).click()
   await page.waitForSelector('text=How to reach them', { timeout: 8000 })
   const sections = await page.locator('div.fixed.inset-0.z-50').innerText()
   const want = ['who they are', 'how to reach them', 'where they are in the process', 'money']
@@ -185,10 +185,29 @@ console.log('PASS  prospective status changed inline')
   if (afterJoined.includes('date of joining') && afterJoined.includes('emp code')) console.log('PASS  Joined reveals DOJ and EMP code')
   else { failed++; console.log('FAIL  Joined did not reveal DOJ / EMP code') }
 
+  // asking, not demanding: the save goes through with the joining block empty
   await modal.locator('button:has-text("Save")').click()
-  await page.waitForSelector('text=joining date is needed', { timeout: 8000 })
-  console.log('PASS  Joined without DOJ / EMP code is refused')
+  await page.waitForSelector('text=Saved', { timeout: 8000 })
+  console.log('PASS  Joined saves without DOJ / EMP code')
+  await page.waitForTimeout(600)
+}
+{
+  // changing the status on the row opens the record on what is worth filling in
+  await page.goto(`${BASE}/#/prospectives`)
+  await page.waitForTimeout(600)
+  await page.locator('div.mb-4 select').first().selectOption('all')   // she is joined now, so show everyone
+  await page.waitForTimeout(400)
+  const sel = page.locator('tr', { hasText: 'Ramanpreet Kaur' }).locator('select').first()
+  await sel.selectOption('rejected')
+  await page.waitForSelector('text=why were they rejected', { timeout: 8000 })
+  console.log('PASS  Rejected opens the record asking for a reason')
   await page.keyboard.press('Escape')
+  await page.waitForTimeout(400)
+  await page.waitForTimeout(600)
+  const stuck = await page.locator('tr', { hasText: 'Ramanpreet Kaur' }).locator('select').first().inputValue()
+  if (stuck === 'rejected') console.log('PASS  the status stuck even with no reason given')
+  else { failed++; console.log(`FAIL  status did not stick (${stuck})`) }
+  await page.locator('div.mb-4 select').first().selectOption('open')
   await page.waitForTimeout(400)
 }
 {

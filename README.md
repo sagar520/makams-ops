@@ -274,9 +274,11 @@ before it is handed over.
   and the money — last withdrawn salary, expected in-hand, old in-hand, in-hand monthly,
   gross monthly and CTC annual. The stage values are deliberately not constrained in the
   database, since the wording of the rounds is still settling; the app offers a fixed list.
-  Setting the status to **Joined** reveals a joining block and refuses to save without a
-  **date of joining** and an **EMP code** — from the record or from the row's status
-  dropdown, which sends HR into the record instead of marking someone joined half-recorded.
+  Setting the status to **Joined** reveals a joining block asking for a **date of joining**
+  and an **EMP code**; setting it to **Rejected** highlights the comment box asking why.
+  Neither is enforced — the status change always sticks, and changing it from the row's
+  status dropdown opens the record on whatever is worth filling in. The nudge is there so
+  the information gets captured while it is fresh, not to stop HR moving a row along.
 - **Candidates DB & referral links**: the raw referral pool. Every link is **issued to
   someone** — an employee picked from the roster, or a named outside source (consultant,
   campus cell). Their name, EMP ID and phone come from the link, so the form shows the

@@ -71,14 +71,15 @@ export default function Prospectives() {
   }
 
   const setStatus = async (row, status) => {
-    if (status === 'joined' && row.status !== 'joined' && (!row.doj || !row.emp_code)) {
-      setEditing({ ...row, status })
-      return toast('Add the joining date and EMP code to mark them joined', 'error')
-    }
     const { error } = await supabase.from('prospectives').update({ status }).eq('id', row.id)
     if (error) return toast(error.message, 'error')
     qc.invalidateQueries({ queryKey: ['prospectives'] })
     toast(`${row.full_name.split(' ')[0]} → ${prospectiveStatusMeta(status).label}`)
+
+    // the status sticks either way; these just open the record on what is worth filling in
+    const next = { ...row, status }
+    if (status === 'joined' && (!row.doj || !row.emp_code)) setEditing(next)
+    else if (status === 'rejected' && !row.comment) setEditing(next)
   }
 
   if (isLoading) return <FullPageSpinner />
@@ -224,13 +225,7 @@ function ProspectiveModal({ row, onClose }) {
 
   const save = async () => {
     if (!form.full_name.trim()) return toast('Name is required', 'error')
-    if (form.status === 'joined') {
-      if (!form.doj) return toast('A joining date is needed to mark someone joined', 'error')
-      // imported rows can be joined without an EMP code; marking someone joined here cannot
-      if (row?.status !== 'joined' && !form.emp_code.trim()) {
-        return toast('An EMP code is needed to mark someone joined', 'error')
-      }
-    }
+
     setSaving(true)
     try {
       const payload = { ...form }
@@ -336,8 +331,18 @@ function ProspectiveModal({ row, onClose }) {
               </Select>
             </Field>
           ))}
-          <Field label="Comment" className="sm:col-span-2" hint="Interview notes, why they were rejected, anything worth keeping">
-            <Textarea rows={3} value={form.comment} onChange={set('comment')} />
+          <Field
+            label={form.status === 'rejected' ? 'Comment — why were they rejected?' : 'Comment'}
+            className="sm:col-span-2"
+            hint={form.status === 'rejected'
+              ? 'Worth filling in — not required to save'
+              : 'Interview notes, why they were rejected, anything worth keeping'}>
+            <Textarea
+              rows={3}
+              className={cx(form.status === 'rejected' && !form.comment && 'border-amber-300 bg-amber-50/40')}
+              value={form.comment}
+              onChange={set('comment')}
+            />
           </Field>
         </Section>
 
@@ -350,9 +355,9 @@ function ProspectiveModal({ row, onClose }) {
         </Section>
 
         {form.status === 'joined' && (
-          <Section title="Joining" hint="Required before anyone can be marked joined">
-            <Field label="Date of joining" required><Input type="date" value={form.doj} onChange={set('doj')} /></Field>
-            <Field label="EMP code" required><Input value={form.emp_code} onChange={set('emp_code')} placeholder="e.g. VSO123" /></Field>
+          <Section title="Joining" hint="Worth filling in — not required to save">
+            <Field label="Date of joining"><Input type="date" value={form.doj} onChange={set('doj')} /></Field>
+            <Field label="EMP code"><Input value={form.emp_code} onChange={set('emp_code')} placeholder="e.g. VSO123" /></Field>
           </Section>
         )}
 
