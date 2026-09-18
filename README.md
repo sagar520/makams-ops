@@ -173,6 +173,12 @@ it leaves one catch-all approval rule pointing at the admin so a submitted PO st
 somewhere to go. PO numbers restart at 0001. It cannot be undone — take a backup first
 (Dashboard → Database → Backups). Running it twice is safe.
 
+Uploaded files are not covered: Supabase refuses deletes against `storage.objects` from
+SQL, so empty the `employee-docs`, `form-uploads` and `prospective-resumes` buckets from
+Dashboard → Storage. `scripts/local-test-stub.sql` reproduces that restriction (and the
+rest of the Supabase-specific schema) so SQL can be tested against a plain Postgres
+before it is handed over.
+
 ### Resend (PO emails)
 
 - [resend.com](https://resend.com) → verify the `makams.com` domain (SPF + DKIM DNS

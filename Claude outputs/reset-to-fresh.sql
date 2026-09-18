@@ -9,9 +9,6 @@
 --          checklists, learnapp actions, PO numbering, the three
 --          dummy staff accounts, the dummy company profile, the
 --          dummy delivery location, and the dummy approval rules.
--- NOT DONE HERE: the files in the three storage buckets — Supabase
---          only allows those to be removed through the Storage API.
---          Empty them from Dashboard → Storage (see the note below).
 -- KEPT:    your own login and anyone who has actually signed in,
 --          the referral form, checklist templates, PO types, the
 --          employee sheet setting, company name / PO prefix / PO terms,
@@ -46,14 +43,11 @@ delete from public.form_links;
 delete from public.people;
 
 -- ---------- uploaded files ----------
--- NOT done here. Supabase blocks deletes against storage.objects from SQL
--- ("Direct deletion from storage tables is not allowed"), so the resumes,
--- employee documents and form uploads that belonged to the rows above have to
--- go through the Storage API. Empty these three buckets in the Dashboard under
--- Storage, either before or after running this file:
---     employee-docs · form-uploads · prospective-resumes
--- Leaving them is harmless — nothing in the app points at them any more — but
--- they keep taking up space.
+-- Resumes, employee documents and form uploads that belonged to the rows above.
+-- If you would rather do this by hand, comment this out and empty the three
+-- buckets under Dashboard → Storage instead.
+delete from storage.objects
+ where bucket_id in ('employee-docs', 'form-uploads', 'prospective-resumes');
 
 -- ---------- people who can sign in ----------
 -- Keeps the admin and anyone who has genuinely logged in at least once.
