@@ -151,10 +151,45 @@ console.log('PASS  prospective status changed inline')
   await page.waitForTimeout(400)
 }
 {
-  // source column + filter
-  const cell = page.locator('td', { hasText: 'LI / Indeed' }).first()
-  try { await cell.waitFor({ timeout: 8000 }); console.log('PASS  prospective source column shown') }
-  catch { failed++; console.log('FAIL  prospective source column shown') }
+  // the sheet stays narrow: source and the rest of the record moved off it
+  const head = (await page.locator('thead').first().innerText()).toLowerCase()
+  if (!head.includes('source')) console.log('PASS  source moved off the sheet into the record')
+  else { failed++; console.log('FAIL  source still a sheet column') }
+
+  // clicking anywhere on a row opens the full record
+  await page.locator('tr', { hasText: 'Sandeep Walia' }).locator('td').nth(1).click()
+  await page.waitForSelector('text=How to reach them', { timeout: 8000 })
+  const sections = await page.locator('div.fixed.inset-0.z-50').innerText()
+  const want = ['who they are', 'how to reach them', 'where they are in the process', 'money']
+  if (want.every((t) => sections.toLowerCase().includes(t))) console.log('PASS  record opens with all sections')
+  else { failed++; console.log('FAIL  record sections missing') }
+
+  const fields = sections.toLowerCase()
+  const wantFields = ['additional contact', 'email', 'reference', 'test score', 'invitation mail',
+                      'manager round', 'hr round', 'final round', 'comment',
+                      'last withdrawn salary', 'expected in-hand', 'old in-hand',
+                      'in-hand (monthly)', 'gross (monthly)', 'ctc (annual)']
+  const missing = wantFields.filter((f) => !fields.includes(f))
+  if (!missing.length) console.log('PASS  every extra field is on the record')
+  else { failed++; console.log(`FAIL  missing fields: ${missing.join(', ')}`) }
+
+  // joining block only appears once the status is Joined
+  if (!fields.includes('date of joining')) console.log('PASS  joining block hidden until status is Joined')
+  else { failed++; console.log('FAIL  joining block shown too early') }
+
+  const modal = page.locator('div.fixed.inset-0.z-50')
+  const statusSel = modal.locator('select').filter({ has: page.locator('option[value="joined"]') }).first()
+  await statusSel.selectOption('joined')
+  await page.waitForTimeout(400)
+  const afterJoined = (await modal.innerText()).toLowerCase()
+  if (afterJoined.includes('date of joining') && afterJoined.includes('emp code')) console.log('PASS  Joined reveals DOJ and EMP code')
+  else { failed++; console.log('FAIL  Joined did not reveal DOJ / EMP code') }
+
+  await modal.locator('button:has-text("Save")').click()
+  await page.waitForSelector('text=joining date and EMP code', { timeout: 8000 })
+  console.log('PASS  Joined without DOJ / EMP code is refused')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(400)
 }
 {
   // filter to Internal Referral: Harjinder Pal (pr-02) stays, Sandeep Walia (LI / Indeed) disappears
@@ -234,7 +269,7 @@ console.log('PASS  prospective status changed inline')
   await page.waitForSelector('text=Add prospective', { timeout: 8000 })
   const modal = page.locator('div.fixed.inset-0.z-50')
   await modal.locator('label:has-text("Name") input').first().fill('Mirror Test Prospect')
-  await modal.locator('label:has-text("Area") input').first().fill('Khanna')
+  await modal.locator('label:has-text("Location") input').first().fill('Khanna')
   await modal.locator('button:has-text("Save")').click()
   await page.waitForSelector('text=Saved', { timeout: 8000 })
   await page.waitForTimeout(600)

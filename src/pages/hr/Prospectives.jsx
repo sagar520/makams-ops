@@ -3,11 +3,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, ClipboardList, Trash2, Paperclip, Upload, X, Pencil, FileText } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
-  PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, Select, Input,
+  PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, Select, Input, Textarea,
   Field, Modal, EmptyState, FullPageSpinner, useToast, cx,
 } from '../../components/ui'
-import { PROSPECTIVE_STATUS, PROSPECTIVE_SOURCES, PROSPECTIVE_DEPARTMENTS, PROSPECTIVE_DIVISIONS, PROSPECTIVE_STATUS_CLS, PROSPECTIVE_ROW_CLS, prospectiveStatusMeta } from '../../lib/constants'
-import { fmtDate } from '../../lib/format'
+import { PROSPECTIVE_STATUS, PROSPECTIVE_SOURCES, PROSPECTIVE_DEPARTMENTS, PROSPECTIVE_DIVISIONS, PROSPECTIVE_STAGES, PROSPECTIVE_MONEY, PROSPECTIVE_STATUS_CLS, PROSPECTIVE_ROW_CLS, prospectiveStatusMeta } from '../../lib/constants'
+import { fmtDate, inr } from '../../lib/format'
 
 export default function Prospectives() {
   const qc = useQueryClient()
@@ -51,7 +51,8 @@ export default function Prospectives() {
     if (divFilter) list = list.filter((r) => (r.division || '') === divFilter)
     if (q.trim()) {
       const n = q.trim().toLowerCase()
-      list = list.filter((r) => [r.cv_no, r.full_name, r.designation, r.area, r.contact].filter(Boolean).some((v) => v.toLowerCase().includes(n)))
+      list = list.filter((r) => [r.cv_no, r.full_name, r.designation, r.area, r.contact, r.contact2, r.email, r.reference, r.emp_code]
+        .filter(Boolean).some((v) => String(v).toLowerCase().includes(n)))
     }
     return list
   }, [rows, statusFilter, areaFilter, sourceFilter, deptFilter, divFilter, q])
@@ -70,6 +71,10 @@ export default function Prospectives() {
   }
 
   const setStatus = async (row, status) => {
+    if (status === 'joined' && (!row.doj || !row.emp_code)) {
+      setEditing({ ...row, status })
+      return toast('Add the joining date and EMP code to mark them joined', 'error')
+    }
     const { error } = await supabase.from('prospectives').update({ status }).eq('id', row.id)
     if (error) return toast(error.message, 'error')
     qc.invalidateQueries({ queryKey: ['prospectives'] })
@@ -123,22 +128,21 @@ export default function Prospectives() {
       ) : (
         <Table>
           <thead>
-            <tr><Th>CV no.</Th><Th>Name</Th><Th>Division</Th><Th>Department</Th><Th>Area</Th><Th>Contact</Th><Th>Source</Th><Th>Status</Th><Th>Last updated</Th><Th /></tr>
+            <tr><Th>CV no.</Th><Th>Name</Th><Th>Division</Th><Th>Department</Th><Th>Location</Th><Th>Contact</Th><Th>Status</Th><Th>Last updated</Th><Th /></tr>
           </thead>
           <tbody>
             {filtered.map((r) => (
-              <Tr key={r.id} className={PROSPECTIVE_ROW_CLS[r.status]}>
+              <Tr key={r.id} className={cx('cursor-pointer', PROSPECTIVE_ROW_CLS[r.status])} onClick={() => setEditing(r)}>
                 <Td className="whitespace-nowrap font-mono text-xs opacity-70">{r.cv_no || '—'}</Td>
                 <Td className="font-semibold">
-                  <button className="hover:underline" onClick={() => setEditing(r)}>{r.full_name}</button>
+                  <span className="hover:underline">{r.full_name}</span>
                   {r.candidate_id && <Badge tone="slate" className="ml-2">from DB</Badge>}
                 </Td>
                 <Td className="whitespace-nowrap opacity-80">{r.division || '—'}</Td>
                 <Td className="whitespace-nowrap opacity-80">{r.department || 'Sales'}</Td>
                 <Td className="opacity-80">{r.area || '—'}</Td>
                 <Td className="opacity-70">{r.contact || '—'}</Td>
-                <Td className="opacity-70">{r.source || 'Other'}</Td>
-                <Td>
+                <Td onClick={(e) => e.stopPropagation()}>
                   <Select
                     className={cx('w-52 py-1 text-xs font-medium', PROSPECTIVE_STATUS_CLS[r.status])}
                     value={r.status}
@@ -148,7 +152,7 @@ export default function Prospectives() {
                   </Select>
                 </Td>
                 <Td className="whitespace-nowrap text-xs opacity-60">{fmtDate(r.updated_at || r.created_at)}</Td>
-                <Td right>
+                <Td right onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-end gap-1">
                     {r.resume_path ? (
                       <Button variant="secondary" size="xs" icon={FileText} loading={opening === r.id} onClick={() => openResume(r)}>
@@ -171,7 +175,26 @@ export default function Prospectives() {
   )
 }
 
-const EMPTY = { full_name: '', division: '', department: 'Sales', designation: '', area: '', contact: '', source: 'Other', status: 'new' }
+const EMPTY = {
+  full_name: '', division: '', department: 'Sales', designation: '', area: '',
+  contact: '', contact2: '', email: '', reference: '', source: 'Other', test_score: '',
+  status: 'new', stage_mail: '', stage_manager: '', stage_hr: '', stage_final: '', comment: '',
+  last_salary: '', expected_inhand: '', old_inhand: '', inhand_monthly: '', gross_monthly: '', ctc_annual: '',
+  doj: '', emp_code: '',
+}
+
+/** A titled two-column block inside the prospective record. */
+function Section({ title, hint, children }) {
+  return (
+    <section>
+      <div className="mb-3 flex items-baseline gap-2 border-b border-slate-100 pb-1.5">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</h3>
+        {hint && <span className="text-xs text-slate-400">{hint}</span>}
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+    </section>
+  )
+}
 
 const RESUME_OK = /\.(pdf|docx?|jpe?g|png)$/i
 
@@ -201,6 +224,9 @@ function ProspectiveModal({ row, onClose }) {
 
   const save = async () => {
     if (!form.full_name.trim()) return toast('Name is required', 'error')
+    if (form.status === 'joined' && (!form.doj || !form.emp_code.trim())) {
+      return toast('A joining date and EMP code are needed to mark someone joined', 'error')
+    }
     setSaving(true)
     try {
       const payload = { ...form }
@@ -246,7 +272,7 @@ function ProspectiveModal({ row, onClose }) {
   }
 
   return (
-    <Modal open onClose={onClose} title={row ? `${row.full_name}${row.cv_no ? ` · ${row.cv_no}` : ''}` : 'Add prospective'}
+    <Modal open onClose={onClose} size="xl" title={row ? `${row.full_name}${row.cv_no ? ` · ${row.cv_no}` : ''}` : 'Add prospective'}
       footer={
         <>
           {row && <Button variant="dangerSubtle" icon={Trash2} onClick={remove} className="mr-auto">Remove</Button>}
@@ -254,36 +280,80 @@ function ProspectiveModal({ row, onClose }) {
           <Button onClick={save} loading={saving}>Save</Button>
         </>
       }>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Name" required className="sm:col-span-2"
-          hint={row ? `CV no. ${row.cv_no || '—'}` : 'A CV number is assigned automatically when you save'}>
-          <Input value={form.full_name} onChange={set('full_name')} autoFocus={!row} />
-        </Field>
-        <Field label="Division">
-          <Select value={form.division || ''} onChange={set('division')}>
-            <option value="">Not set</option>
-            {PROSPECTIVE_DIVISIONS.map((d) => <option key={d}>{d}</option>)}
-          </Select>
-        </Field>
-        <Field label="Department" hint="Only Sales prospectives are mirrored into the Candidates DB">
-          <Select value={form.department || 'Sales'} onChange={set('department')}>
-            {PROSPECTIVE_DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}
-          </Select>
-        </Field>
-        <Field label="Designation"><Input value={form.designation} onChange={set('designation')} placeholder="e.g. Area Sales Manager" /></Field>
-        <Field label="Area"><Input value={form.area} onChange={set('area')} placeholder="e.g. Ludhiana / Jalandhar" /></Field>
-        <Field label="Contact"><Input value={form.contact} onChange={set('contact')} placeholder="Phone / email" /></Field>
-        <Field label="Source">
-          <Select value={form.source || 'Other'} onChange={set('source')}>
-            {PROSPECTIVE_SOURCES.map((s) => <option key={s}>{s}</option>)}
-          </Select>
-        </Field>
-        <Field label="Status">
-          <Select className={cx('font-medium', PROSPECTIVE_STATUS_CLS[form.status])} value={form.status} onChange={set('status')}>
-            {PROSPECTIVE_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </Select>
-        </Field>
-        <Field label="Resume" hint="Optional — PDF, Word or image, max 15 MB" className="sm:col-span-2">
+      <div className="space-y-6">
+        <Section title="Who they are">
+          <Field label="Name" required className="sm:col-span-2"
+            hint={row ? `CV no. ${row.cv_no || '—'}` : 'A CV number is assigned automatically when you save'}>
+            <Input value={form.full_name} onChange={set('full_name')} autoFocus={!row} />
+          </Field>
+          <Field label="Division">
+            <Select value={form.division || ''} onChange={set('division')}>
+              <option value="">Not set</option>
+              {PROSPECTIVE_DIVISIONS.map((d) => <option key={d}>{d}</option>)}
+            </Select>
+          </Field>
+          <Field label="Department" hint="Only Sales prospectives are mirrored into the Candidates DB">
+            <Select value={form.department || 'Sales'} onChange={set('department')}>
+              {PROSPECTIVE_DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}
+            </Select>
+          </Field>
+          <Field label="Designation"><Input value={form.designation} onChange={set('designation')} placeholder="e.g. Area Sales Manager" /></Field>
+          <Field label="Location"><Input value={form.area} onChange={set('area')} placeholder="e.g. Ludhiana / Jalandhar" /></Field>
+        </Section>
+
+        <Section title="How to reach them">
+          <Field label="Contact 1"><Input value={form.contact} onChange={set('contact')} placeholder="Phone" /></Field>
+          <Field label="Additional contact"><Input value={form.contact2} onChange={set('contact2')} placeholder="Alternate phone" /></Field>
+          <Field label="Email"><Input type="email" value={form.email} onChange={set('email')} placeholder="name@example.com" /></Field>
+          <Field label="Reference" hint="Who or what pointed them here">
+            <Input value={form.reference} onChange={set('reference')} placeholder="e.g. Deepak Verma / Naukri" />
+          </Field>
+          <Field label="Source">
+            <Select value={form.source || 'Other'} onChange={set('source')}>
+              {PROSPECTIVE_SOURCES.map((s) => <option key={s}>{s}</option>)}
+            </Select>
+          </Field>
+          <Field label="Test score" hint="However you record it — 18/25, Pass, …">
+            <Input value={form.test_score} onChange={set('test_score')} />
+          </Field>
+        </Section>
+
+        <Section title="Where they are in the process">
+          <Field label="Status" className="sm:col-span-2">
+            <Select className={cx('font-medium', PROSPECTIVE_STATUS_CLS[form.status])} value={form.status} onChange={set('status')}>
+              {PROSPECTIVE_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </Select>
+          </Field>
+          {PROSPECTIVE_STAGES.map((st) => (
+            <Field key={st.key} label={st.label}>
+              <Select value={form[st.key] || ''} onChange={set(st.key)}>
+                <option value="">—</option>
+                {st.options.map((o) => <option key={o}>{o}</option>)}
+              </Select>
+            </Field>
+          ))}
+          <Field label="Comment" className="sm:col-span-2" hint="Interview notes, why they were rejected, anything worth keeping">
+            <Textarea rows={3} value={form.comment} onChange={set('comment')} />
+          </Field>
+        </Section>
+
+        <Section title="Money">
+          {PROSPECTIVE_MONEY.map((m) => (
+            <Field key={m.key} label={m.label}>
+              <Input type="number" min="0" step="0.01" value={form[m.key]} onChange={set(m.key)} placeholder="₹" />
+            </Field>
+          ))}
+        </Section>
+
+        {form.status === 'joined' && (
+          <Section title="Joining" hint="Required before anyone can be marked joined">
+            <Field label="Date of joining" required><Input type="date" value={form.doj} onChange={set('doj')} /></Field>
+            <Field label="EMP code" required><Input value={form.emp_code} onChange={set('emp_code')} placeholder="e.g. VSO123" /></Field>
+          </Section>
+        )}
+
+        <Section title="Resume">
+        <Field hint="Optional — PDF, Word or image, max 15 MB" className="sm:col-span-2">
           {resume ? (
             <div className="flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
               <Paperclip className="h-4 w-4 shrink-0" />
@@ -308,6 +378,7 @@ function ProspectiveModal({ row, onClose }) {
             </label>
           )}
         </Field>
+        </Section>
       </div>
     </Modal>
   )

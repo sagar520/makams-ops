@@ -101,6 +101,24 @@ export const PROSPECTIVE_DEPARTMENTS = ['Sales', 'PMT', 'Marketing', 'Doctor', '
 
 export const PROSPECTIVE_DIVISIONS = ['Poultry', 'Cattle', 'HO', 'Manufacturing']
 
+/** Interview stages kept on a prospective. `key` is the column. */
+export const PROSPECTIVE_STAGES = [
+  { key: 'stage_mail', label: 'Invitation mail', options: ['Not sent', 'Sent', 'No response'] },
+  { key: 'stage_manager', label: 'Manager round', options: ['Pending', 'Scheduled', 'Cleared', 'Rejected', 'Skipped'] },
+  { key: 'stage_hr', label: 'HR round', options: ['Pending', 'Scheduled', 'Cleared', 'Rejected', 'Skipped'] },
+  { key: 'stage_final', label: 'Final round', options: ['Pending', 'Scheduled', 'Cleared', 'Rejected', 'Skipped'] },
+]
+
+/** Money kept on a prospective, in the order HR reads it. */
+export const PROSPECTIVE_MONEY = [
+  { key: 'last_salary', label: 'Last withdrawn salary' },
+  { key: 'expected_inhand', label: 'Expected in-hand' },
+  { key: 'old_inhand', label: 'Old in-hand' },
+  { key: 'inhand_monthly', label: 'In-hand (monthly)' },
+  { key: 'gross_monthly', label: 'Gross (monthly)' },
+  { key: 'ctc_annual', label: 'CTC (annual)' },
+]
+
 export const PROSPECTIVE_SOURCES = ['LI / Indeed', 'Internal Referral', 'Other']
 
 export const CANDIDATE_STATUS = [

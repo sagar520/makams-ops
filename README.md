@@ -243,8 +243,18 @@ before it is handed over.
   and a rejected insert leaves a gap in the run. Status is colour-coded and changed inline
   (New → Contacted → Interested → Interview Scheduled → Offer Letter Sent → Joined, plus
   Rejected), with status/area/department/division/source filters and a search box that
-  also matches the CV number. Each row can carry an optional **resume** (private
-  `prospective-resumes` bucket, HR-only, opened through a short-lived signed URL).
+  also matches the CV number, email, reference and EMP code. Each row can carry an optional
+  **resume** (private `prospective-resumes` bucket, HR-only, opened through a short-lived
+  signed URL).
+  Clicking a row opens the **full record**, which is where everything the sheet doesn't show
+  lives: additional contact, email, reference, source, test score; the four interview stages
+  (invitation mail, manager round, HR round, final round) and a free-text comment;
+  and the money — last withdrawn salary, expected in-hand, old in-hand, in-hand monthly,
+  gross monthly and CTC annual. The stage values are deliberately not constrained in the
+  database, since the wording of the rounds is still settling; the app offers a fixed list.
+  Setting the status to **Joined** reveals a joining block and refuses to save without a
+  **date of joining** and an **EMP code** — from the record or from the row's status
+  dropdown, which sends HR into the record instead of marking someone joined half-recorded.
 - **Candidates DB & referral links**: the raw referral pool. Every link is **issued to
   someone** — an employee picked from the roster, or a named outside source (consultant,
   campus cell). Their name, EMP ID and phone come from the link, so the form shows the
