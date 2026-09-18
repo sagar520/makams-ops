@@ -53,7 +53,7 @@ Never set `VITE_DEMO` on the real deployment.
    first sign-in.
 3. Run the migrations, either way:
    - **Dashboard**: SQL Editor → paste and run `0001_core.sql`, `0002_hr.sql`,
-     `0003_purchase.sql`, … through `0013_employee_sheet.sql` **in order** (or paste the
+     `0003_purchase.sql`, … through `0015_prospective_department.sql` **in order** (or paste the
      combined `supabase/makams-ops-schema.sql` once).
    - **CLI**: `supabase link --project-ref <ref>` then `supabase db push`.
 
@@ -201,7 +201,8 @@ set — you can go live without them and add them later.
   the UI by request; the backend for them remains in place if wanted later. HR can
   still upload documents directly on a person's Documents tab.
 - **Prospectives**: the flat hiring sheet HR works daily — Name, Designation, Area,
-  Contact, Source (LI / Indeed, Internal Referral, Other), Status and Last updated.
+  Department (Sales / PMT / Marketing / Doctor / Other HO Functions / Other), Contact,
+  Source (LI / Indeed, Internal Referral, Other), Status and Last updated.
   Status is colour-coded and changed inline (New → Contacted → Interested → Interview
   Scheduled → Offer Letter Sent → Joined, plus Rejected), with status/area/source
   filters. Each row can carry an optional **resume** (private
@@ -227,7 +228,15 @@ set — you can go live without them and add them later.
   through `save_candidate` / `pick_candidate` / `delete_candidate`. An HR user with
   the anon key and a REST client sees exactly what the UI shows them: nothing, until
   they name an area.
-- **Where candidates come from**: referral links only. The old candidate-intake form is
+- **Where candidates come from**: referral links, plus automatic mirroring. Every new
+  **employee**, and every new **Sales** prospective, is copied into the Candidates DB
+  tagged `Current company: CRIL` / `Referred by: CRIL HR`, so the DB is the one place
+  that knows about everybody. Nothing is duplicated — a matching phone (last 10 digits)
+  or an identical name means the row is left alone — and rows pushed the other way
+  (Candidates → Prospectives) don't come back round. Prospectives outside Sales (PMT,
+  Marketing, Doctor, Other HO Functions, Other) stay out of the DB. Mirroring applies
+  from the moment the upgrade runs; it does not back-fill what is already there. The old candidate-intake form is
+ The old candidate-intake form is
   gone, and the Google Sheet feeds **Employees**, not candidates.
 - **Forms**: admin-only builder, jotform-style — add fields (text, paragraph, email,
   phone, number, date, dropdown, file), mark required, reorder, live preview.

@@ -128,6 +128,22 @@ function hydrateTable(table) {
 
 /* ---------------- write behaviour ---------------- */
 
+/** the Candidates DB holds everyone: employees and prospectives are mirrored into it */
+function ensureCandidate({ full_name, phone, designation, area, source }) {
+  const key = String(phone || '').replace(/\D/g, '').slice(-10)
+  const dup = store.candidates.find(
+    (c) => (key && String(c.phone || '').replace(/\D/g, '').slice(-10) === key) ||
+           String(c.full_name || '').toLowerCase() === String(full_name || '').trim().toLowerCase()
+  )
+  if (dup || !String(full_name || '').trim()) return
+  store.candidates.unshift({
+    ...insertDefaults.candidates(),
+    full_name: String(full_name).trim(), phone: phone || null,
+    designation: designation || null, area: area || null,
+    current_company: 'CRIL', referred_by_name: 'CRIL HR', source: source || 'Makams Ops',
+  })
+}
+
 const insertDefaults = {
   app_users: () => ({ id: genId('u'), auth_id: null, active: true, roles: [], created_at: nowIso(), updated_at: nowIso() }),
   people: () => ({ id: genId('p'), status: 'joining', sales_role: 'sales', department: 'Sales', extra: {}, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
@@ -147,14 +163,24 @@ const insertDefaults = {
   learnapp_actions: () => ({ id: genId('la'), created_by: 'u-aakash', created_at: nowIso() }),
   app_settings: () => ({ updated_at: nowIso() }),
   candidates: () => ({ id: genId('c'), status: 'new', extra: {}, referred_by_name: null, referrer_emp_id: null, picked_at: null, prospective_id: null, hr_comment: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
-  prospectives: () => ({ id: genId('pr'), source: 'Other', status: 'new', candidate_id: null, resume_path: null, resume_name: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
+  prospectives: () => ({ id: genId('pr'), department: 'Sales', source: 'Other', status: 'new', candidate_id: null, resume_path: null, resume_name: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
   referral_submissions: () => ({ id: genId('rs'), status: 'pending', candidate_id: null, reviewed_by: null, reviewed_at: null, created_at: nowIso(), updated_at: nowIso() }),
   form_templates: () => ({ id: genId('ft'), kind: 'general', fields: [], active: true, created_at: nowIso(), updated_at: nowIso() }),
   form_links: () => ({ id: genId('fl'), token: genId('demo-link'), active: true, expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), referrer_name: null, referrer_emp_id: null, referrer_phone: null, submission_count: 0, created_by: 'u-aakash', created_at: nowIso() }),
   form_responses: () => ({ id: genId('fr'), answers: {}, files: [], candidate_id: null, created_at: nowIso() }),
 }
 
-function afterWrite(table, rows) {
+function afterWrite(table, rows, mode) {
+  if (mode === 'insert' && table === 'people') {
+    for (const p of rows) ensureCandidate({ ...p, area: p.hq_name, source: 'Employee' })
+  }
+  if (mode === 'insert' && table === 'prospectives') {
+    for (const p of rows) {
+      if (p.candidate_id) continue                                   // came FROM the Candidates DB
+      if ((p.department || 'Sales') !== 'Sales') continue             // sales pipeline only
+      ensureCandidate({ ...p, phone: p.contact, source: 'Prospective' })
+    }
+  }
   if (table === 'po_items') {
     new Set(rows.map((r) => r.po_id)).forEach((id) => recomputePoTotals(id))
   }
@@ -274,7 +300,7 @@ class Query {
           written.push(row)
         }
       }
-      afterWrite(this.table, written)
+      afterWrite(this.table, written, this._mode === 'upsert' ? 'upsert' : 'insert')
       const data = this._selectAfterWrite
         ? (this._single ? clone(hydrators[this.table] ? hydrators[this.table](written[0]) : written[0]) : written.map(clone))
         : null
@@ -284,7 +310,7 @@ class Query {
     if (this._mode === 'update') {
       const rows = (store[this.table] || []).filter((r) => this.filters.every((f) => f(r)))
       for (const r of rows) Object.assign(r, clone(this._payload), 'updated_at' in r ? { updated_at: nowIso() } : {})
-      afterWrite(this.table, rows)
+      afterWrite(this.table, rows, this._mode)
       return { data: this._selectAfterWrite ? rows.map(clone) : null, error: null, count: rows.length }
     }
 
@@ -292,7 +318,7 @@ class Query {
       const doomed = (store[this.table] || []).filter((r) => this.filters.every((f) => f(r)))
       store[this.table] = store[this.table].filter((r) => !doomed.includes(r))
       for (const row of doomed) cascadeDelete(this.table, row)
-      afterWrite(this.table, doomed)
+      afterWrite(this.table, doomed, 'delete')
       return { data: null, error: null, count: doomed.length }
     }
     return { data: null, error: { message: 'Unsupported' } }
@@ -752,7 +778,8 @@ async function invokeFunction(name, body = {}) {
     if (!body.dry_run) {
       for (const r of rows) {
         if (store.people.some((p) => p.emp_code === r.emp_code)) continue
-        store.people.unshift({ ...insertDefaults.people(), ...r, department: 'Sales', sales_role: 'sales' })
+        store.people.unshift({ ...insertDefaults.people(), ...r, department: 'Sales', sales_role: r.sales_role || 'sales' })
+        ensureCandidate({ ...r, area: r.hq_name, source: 'Employee' })
       }
     }
     return {

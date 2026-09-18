@@ -128,13 +128,53 @@ console.log('PASS  prospective status changed inline')
 {
   // filter to Internal Referral: Harjinder Pal (pr-02) stays, Sandeep Walia (LI / Indeed) disappears
   const selects = page.locator('div.mb-4 select')
-  await selects.nth(2).selectOption('Internal Referral')
+  await selects.nth(3).selectOption('Internal Referral')
   await page.waitForTimeout(400)
   const gone = await page.locator('td', { hasText: 'Sandeep Walia' }).count()
   const kept = await page.locator('td', { hasText: 'Harjinder Pal' }).count()
   if (gone === 0 && kept > 0) console.log('PASS  source filter works')
   else { failed++; console.log('FAIL  source filter works') }
-  await selects.nth(2).selectOption('')
+  await selects.nth(3).selectOption('')
+}
+{
+  // department column + filter
+  const head = (await page.locator('thead').first().innerText()).toLowerCase()
+  if (head.includes('department') && !head.includes('designation')) console.log('PASS  department column, no designation column')
+  else { failed++; console.log(`FAIL  prospective columns (${head.replace(/\s+/g, ' ')})`) }
+
+  await page.locator('div.mb-4 select').nth(2).selectOption('PMT')
+  await page.waitForTimeout(400)
+  const off = await page.locator('td', { hasText: 'Sandeep Walia' }).count()   // Sales
+  const on = await page.locator('td', { hasText: 'Jaspreet Brar' }).count()    // PMT
+  if (off === 0 && on > 0) console.log('PASS  department filter works')
+  else { failed++; console.log('FAIL  department filter works') }
+  await page.locator('div.mb-4 select').nth(2).selectOption('')
+  await page.waitForTimeout(400)
+}
+
+// 4b. a new prospective is mirrored into the Candidates DB
+{
+  await page.goto(`${BASE}/#/prospectives`)
+  await page.click('button:has-text("Add prospective")')
+  await page.waitForSelector('text=Add prospective', { timeout: 8000 })
+  const modal = page.locator('div.fixed.inset-0.z-50')
+  await modal.locator('label:has-text("Name") input').first().fill('Mirror Test Prospect')
+  await modal.locator('label:has-text("Area") input').first().fill('Khanna')
+  await modal.locator('button:has-text("Save")').click()
+  await page.waitForSelector('text=Saved', { timeout: 8000 })
+  await page.waitForTimeout(600)
+  await page.goto(`${BASE}/#/candidates`)
+  await page.waitForSelector('text=Mirror Test Prospect', { timeout: 10000 })
+  const row = page.locator('tr', { hasText: 'Mirror Test Prospect' })
+  const text = await row.innerText()
+  if (/CRIL HR/.test(text) && /CRIL/.test(text)) console.log('PASS  prospective mirrored into the DB as CRIL / CRIL HR')
+  else { failed++; console.log(`FAIL  prospective mirrored (${text})`) }
+}
+{
+  // the DB calls it Location now, not Area
+  const head = (await page.locator('thead').first().innerText()).toLowerCase()
+  if (head.includes('location') && !head.includes('area')) console.log('PASS  Candidates DB says Location')
+  else { failed++; console.log('FAIL  Candidates DB still says Area') }
 }
 
 // 5. Candidates DB (referral database) — admin opens on the full list
@@ -143,12 +183,12 @@ await expectText('Admin view — the whole database', 'admin sees the full DB by
 await expectText('Ankit Malhotra', 'candidates DB renders')
 // and can still narrow to one area — the view HR is locked to
 {
-  await page.click('button:has-text("Search by area")')
-  await page.waitForSelector('text=Search an area to open the database', { timeout: 8000 })
+  await page.click('button:has-text("Search by location")')
+  await page.waitForSelector('text=Search a location to open the database', { timeout: 8000 })
   const leaked = await page.locator('td', { hasText: 'Ankit Malhotra' }).count()
   if (leaked === 0) console.log('PASS  area view lists nothing until searched')
   else { failed++; console.log('FAIL  rows visible in the area view without a search') }
-  await page.locator('input[list="candidate-areas"]').fill('Ludhiana')
+  await page.locator('input[list="candidate-locations"]').fill('Ludhiana')
   await page.click('button:has-text("Search")')
   await page.waitForSelector('text=Ankit Malhotra', { timeout: 8000 })
   const other = await page.locator('td', { hasText: 'Harjinder Pal' }).count()   // Mohali

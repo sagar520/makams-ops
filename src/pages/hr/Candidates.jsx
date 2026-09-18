@@ -244,7 +244,7 @@ function SubmissionModal({ entry, onClose, onSaved }) {
         <Field label="Referred by (name)"><Input value={form.referred_by_name} onChange={set('referred_by_name')} /></Field>
         <Field label="Referrer EMP ID"><Input value={form.referrer_emp_id} onChange={set('referrer_emp_id')} /></Field>
         <Field label="Candidate name" required><Input value={form.full_name} onChange={set('full_name')} /></Field>
-        <Field label="Area"><Input value={form.area} onChange={set('area')} /></Field>
+        <Field label="Location"><Input value={form.area} onChange={set('area')} /></Field>
         <Field label="Designation"><Input value={form.designation} onChange={set('designation')} /></Field>
         <Field label="Current company"><Input value={form.current_company} onChange={set('current_company')} /></Field>
         <Field label="Phone number" hint={MOBILE_HINT}>
@@ -304,7 +304,7 @@ function Database() {
 
   const search = (value) => {
     const v = (value ?? areaInput).trim()
-    if (v.length < 2) return toast('Type at least 2 characters of an area', 'error')
+    if (v.length < 2) return toast('Type at least 2 characters of a location', 'error')
     setShowAll(false)
     setAreaInput(v)
     setArea(v)
@@ -354,11 +354,11 @@ function Database() {
       {!full && (
         <Card className="mb-4">
           <div className="flex flex-wrap items-end gap-3">
-            <Field label="Search an area" className="min-w-64 flex-1"
-              hint="The database opens one area at a time — it is never listed in full.">
+            <Field label="Search a location" className="min-w-64 flex-1"
+              hint="The database opens one location at a time — it is never listed in full.">
               <div className="flex gap-2">
                 <Input
-                  list="candidate-areas"
+                  list="candidate-locations"
                   value={areaInput}
                   placeholder="e.g. Ludhiana"
                   onChange={(e) => setAreaInput(e.target.value)}
@@ -367,7 +367,7 @@ function Database() {
                 <Button icon={Search} onClick={() => search()} loading={isFetching}>Search</Button>
               </div>
             </Field>
-            <datalist id="candidate-areas">
+            <datalist id="candidate-locations">
               {areas.map((a) => <option key={a} value={a} />)}
             </datalist>
           </div>
@@ -376,12 +376,12 @@ function Database() {
               You're an admin, so you can also{' '}
               <button className="font-medium text-red-600 hover:underline" onClick={() => { setShowAll(true); setArea('') }}>
                 open the full database
-              </button>. HR accounts only ever see one area at a time.
+              </button>. HR accounts only ever see one location at a time.
             </p>
           )}
           {areas.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-slate-400">Areas on file:</span>
+              <span className="text-xs text-slate-400">Locations on file:</span>
               {areas.slice(0, 12).map((a) => (
                 <button key={a}
                   className={cx('rounded-full border px-2.5 py-0.5 text-xs transition-colors',
@@ -400,9 +400,9 @@ function Database() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-slate-600">
               <ShieldCheck className="mr-1.5 inline h-4 w-4 text-red-500" />
-              Admin view — the whole database. HR accounts search it one area at a time.
+              Admin view — the whole database. HR accounts search it one location at a time.
             </p>
-            <Button variant="secondary" size="xs" icon={Search} onClick={() => setShowAll(false)}>Search by area</Button>
+            <Button variant="secondary" size="xs" icon={Search} onClick={() => setShowAll(false)}>Search by location</Button>
           </div>
         </Card>
       )}
@@ -423,8 +423,8 @@ function Database() {
       ) : !full && !area ? (
         <EmptyState
           icon={ShieldCheck}
-          title="Search an area to open the database"
-          hint="Candidate records are pulled one area at a time — nobody can browse or export the whole pool."
+          title="Search a location to open the database"
+          hint="Candidate records are pulled one location at a time — nobody can browse or export the whole pool."
         />
       ) : !filtered.length ? (
         <EmptyState
@@ -437,7 +437,7 @@ function Database() {
         <Table>
           <thead>
             <tr>
-              <Th>Referred by</Th><Th>Name</Th><Th>Area</Th><Th>Designation</Th><Th>Current company</Th><Th>Phone</Th><Th>HR comment</Th><Th>Added</Th><Th />
+              <Th>Referred by</Th><Th>Name</Th><Th>Location</Th><Th>Designation</Th><Th>Current company</Th><Th>Phone</Th><Th>HR comment</Th><Th>Added</Th><Th />
             </tr>
           </thead>
           <tbody>
@@ -646,7 +646,7 @@ function CandidateModal({ candidate, onClose, onSaved }) {
         <Field label="Referred by (name)"><Input value={form.referred_by_name} onChange={set('referred_by_name')} /></Field>
         <Field label="Referrer EMP ID" hint="If the referrer is an employee"><Input value={form.referrer_emp_id} onChange={set('referrer_emp_id')} placeholder="e.g. MKM-004" /></Field>
         <Field label="Candidate name" required><Input value={form.full_name} onChange={set('full_name')} /></Field>
-        <Field label="Area"><Input value={form.area} onChange={set('area')} /></Field>
+        <Field label="Location"><Input value={form.area} onChange={set('area')} /></Field>
         <Field label="Designation"><Input value={form.designation} onChange={set('designation')} /></Field>
         <Field label="Current company"><Input value={form.current_company} onChange={set('current_company')} /></Field>
         <Field label="Phone number" hint={MOBILE_HINT}>
