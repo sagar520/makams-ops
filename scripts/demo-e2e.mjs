@@ -79,7 +79,7 @@ console.log('PASS  prospective status changed inline')
   await page.waitForTimeout(400)
   const rowCls = await page.locator('tr', { hasText: 'Sahil Chopra' }).first().getAttribute('class')  // rejected
   const openCls = await page.locator('tr', { hasText: 'Sandeep Walia' }).first().getAttribute('class') // contacted
-  if (/bg-slate-/.test(rowCls || '') && /bg-red-/.test(openCls || '')) console.log('PASS  rows tinted by status')
+  if (/bg-red-/.test(rowCls || '') && /bg-indigo-/.test(openCls || '')) console.log('PASS  rows tinted by status')
   else { failed++; console.log(`FAIL  rows tinted by status (rejected=${rowCls} contacted=${openCls})`) }
   await page.locator('div.mb-4 select').first().selectOption('open')
   await page.waitForTimeout(400)
@@ -87,7 +87,7 @@ console.log('PASS  prospective status changed inline')
 {
   // status dropdown is colour-coded
   const cls = await page.locator('tr', { hasText: 'Jaspreet Brar' }).locator('select').getAttribute('class')
-  if (cls && /bg-(red|slate|white)/.test(cls)) console.log('PASS  status dropdown colour-coded')
+  if (cls && /bg-(blue|indigo|violet|orange|emerald|red)-/.test(cls)) console.log('PASS  status dropdown colour-coded')
   else { failed++; console.log(`FAIL  status dropdown colour-coded (class=${cls})`) }
 }
 {
@@ -166,13 +166,28 @@ await page.goto(`${BASE}/#/prospectives`)
 await expectText('Mohit Saini', 'copied row appears on the sheet')
 
 {
-  // candidates now come from the Google Sheet
-  await page.goto(`${BASE}/#/candidates`)
+  // the employee roster comes from the HR sheet; nothing is written back
+  await page.goto(`${BASE}/#/people`)
   await page.click('button:has-text("Import from sheet")')
-  await page.waitForSelector('text=Import candidates from Google Sheet', { timeout: 8000 })
-  await expectText('Master Sheet', 'sheet import names the tab')
+  await page.waitForSelector('text=Import employees from the HR sheet', { timeout: 8000 })
+  await expectText('Master Sheet', 'employee import names the tab')
+  const modal = page.locator('div.fixed.inset-0.z-50')
+  await modal.locator('button:has-text("Dry run")').click()
+  await page.waitForSelector('text=Dry run — nothing written', { timeout: 8000 })
+  await expectText('emp_code', 'dry run reports the matched columns')
+  await modal.locator('button', { hasText: /^Import$/ }).click()
+  await page.waitForSelector('text=2 added, 12 updated', { timeout: 10000 }).catch(() => {})
   await page.keyboard.press('Escape')
-  await page.waitForTimeout(300)
+  await page.waitForTimeout(500)
+  const arrived = await page.locator('td', { hasText: 'Amit Chawla' }).count()
+  if (arrived > 0) console.log('PASS  imported employees land in the list')
+  else { failed++; console.log('FAIL  imported employees not in the list') }
+}
+{
+  // the outbound sync is gone
+  const buttons = await page.locator('button').allInnerTexts()
+  if (!buttons.some((b) => /sync sheet/i.test(b))) console.log('PASS  outbound sheet sync removed')
+  else { failed++; console.log('FAIL  Sync sheet button still present') }
 }
 
 // 6. Referral links tab

@@ -145,7 +145,6 @@ const insertDefaults = {
   purchase_orders: () => ({ id: genId('po'), po_number: null, status: 'draft', order_date: nowIso().slice(0, 10), tax_mode: 'cgst_sgst', subtotal: 0, tax_total: 0, grand_total: 0, current_step: null, sent_count: 0, received_status: 'none', created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
   po_items: () => ({ id: genId('i'), position: 0, unit: 'nos', unit_price: 0, tax_pct: 18, received_qty: 0 }),
   learnapp_actions: () => ({ id: genId('la'), created_by: 'u-aakash', created_at: nowIso() }),
-  sheet_sync_log: () => ({ id: genId('ss'), created_by: 'u-aakash', created_at: nowIso() }),
   app_settings: () => ({ updated_at: nowIso() }),
   candidates: () => ({ id: genId('c'), status: 'new', extra: {}, referred_by_name: null, referrer_emp_id: null, picked_at: null, prospective_id: null, hr_comment: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
   prospectives: () => ({ id: genId('pr'), source: 'Other', status: 'new', candidate_id: null, resume_path: null, resume_name: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
@@ -635,12 +634,6 @@ const rpcs = {
 async function invokeFunction(name, body = {}) {
   await delay(700 + Math.random() * 500)
 
-  if (name === 'sync-sheet') {
-    const rows = store.people.length
-    store.sheet_sync_log.unshift({ id: genId('ss'), status: 'ok', rows, detail: '(demo — no real sheet touched)', created_by: me().id, created_at: nowIso() })
-    return { ok: true, rows }
-  }
-
   if (name === 'send-po') {
     const po = store.purchase_orders.find((p) => p.id === body.po_id)
     if (!po) return { error: 'PO not found' }
@@ -751,24 +744,23 @@ async function invokeFunction(name, body = {}) {
     return { ok: true }
   }
 
-  if (name === 'import-candidates') {
-    // demo: pretend the sheet had a couple of new rows
-    const added = body.dry_run ? 0 : 2
+  if (name === 'import-employees') {
+    const rows = [
+      { emp_code: 'SALES007', full_name: 'Sheet Row — Amit Chawla', hq_name: 'Ludhiana', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', sbu_head_name: 'Aakash Agarwal', personal_email: 'amit.chawla@gmail.com', phone: '+919812340001', date_of_join: '2026-04-01', status: 'active' },
+      { emp_code: 'SALES008', full_name: 'Sheet Row — Priti Nanda', hq_name: 'Patiala', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', sbu_head_name: 'Aakash Agarwal', personal_email: 'priti.nanda@gmail.com', phone: '+919812340002', date_of_join: '2026-05-12', status: 'active' },
+    ]
     if (!body.dry_run) {
-      for (const c of [
-        { full_name: 'Sheet Row — Amit Chawla', phone: '+919812340001', area: 'Ludhiana', designation: 'Sales Officer', current_company: 'Vetcare', referred_by_name: 'Master Sheet' },
-        { full_name: 'Sheet Row — Priti Nanda', phone: '+919812340002', area: 'Patiala', designation: 'Sales Rep', current_company: 'AgriPharma', referred_by_name: 'Master Sheet' },
-      ]) {
-        if (store.candidates.some((x) => x.phone === c.phone)) continue
-        store.candidates.unshift({ ...insertDefaults.candidates(), ...c, source: 'Google Sheet — Master Sheet' })
+      for (const r of rows) {
+        if (store.people.some((p) => p.emp_code === r.emp_code)) continue
+        store.people.unshift({ ...insertDefaults.people(), ...r, department: 'Sales', sales_role: 'sales' })
       }
     }
     return {
       ok: true, tab: 'Master Sheet', dry_run: !!body.dry_run,
-      matched_columns: ['full_name', 'phone', 'area', 'designation', 'current_company', 'referred_by_name'],
-      scanned: 12,
-      ...(body.dry_run ? { would_add: 2, would_update: 3 } : { added, updated: 3 }),
-      skipped: [{ row: 7, name: '', reason: 'no name' }],
+      matched_columns: ['emp_code', 'full_name', 'hq_name', 'asm_name', 'rsm_name', 'sbu_head_name', 'personal_email', 'phone', 'date_of_join', 'status'],
+      scanned: 14,
+      ...(body.dry_run ? { would_add: 2, would_update: 12 } : { added: 2, updated: 12 }),
+      skipped: [{ row: 9, name: '', reason: 'no name' }],
     }
   }
 

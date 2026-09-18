@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase, callFunction } from '../../lib/supabase'
+import { supabase } from '../../lib/supabase'
 import { PageHeader, Card, Button, Input, Select, Textarea, Field, FullPageSpinner, useToast } from '../../components/ui'
 import { PEOPLE_STATUS, SALES_ROLES } from '../../lib/constants'
 
@@ -66,7 +66,6 @@ export default function PersonForm() {
       qc.invalidateQueries({ queryKey: ['people'] })
       qc.invalidateQueries({ queryKey: ['person', personId] })
       toast(isEdit ? 'Saved' : 'Person added')
-      callFunction('sync-sheet', {}).catch(() => {}) // keep the Google Sheet current; ignore failures here
       navigate(`/people/${personId}`)
     } catch (e) {
       toast(e.message, 'error')

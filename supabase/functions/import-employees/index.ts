@@ -1,28 +1,56 @@
-// Pull the Candidates DB from a Google Sheet tab (replaces the old
-// candidate-intake form). Row 1 is the header; columns are matched by
-// name, so the sheet can be laid out however HR likes.
+// Pull the employee roster from the HR Google Sheet. The sheet is the
+// source of truth; this app never writes back to it.
+// Row 1 is the header; columns are matched by name, so the sheet can be
+// laid out however HR likes.
 //
 // Secrets required:
 //   GOOGLE_SERVICE_ACCOUNT  — the full service-account JSON (one line)
-// Sheet + tab come from app_settings.candidate_sheet, or from the
-// CANDIDATE_SHEET_ID / CANDIDATE_SHEET_TAB secrets as a fallback.
+// Sheet + tab come from app_settings.employee_sheet, or from the
+// EMPLOYEE_SHEET_ID / EMPLOYEE_SHEET_TAB secrets as a fallback.
 // Share the spreadsheet with the service account's client_email (Viewer is enough).
 
 import { SignJWT, importPKCS8 } from 'npm:jose@5'
 import { corsHeaders, json, serviceClient, requireRole } from '../_shared/utils.ts'
 
-/** candidate field  ->  header names we accept for it (lowercased, punctuation stripped) */
+/** people field  ->  header names we accept for it (lowercased, punctuation stripped) */
 const HEADER_MAP: [string, string[]][] = [
-  ['full_name',        ['name', 'full name', 'candidate name', 'candidate', 'contact name', 'person']],
-  ['phone',            ['phone', 'phone number', 'mobile', 'mobile number', 'contact', 'contact number', 'contact no', 'phone no']],
-  ['designation',      ['designation', 'title', 'role', 'position', 'job title']],
-  ['area',             ['area', 'location', 'city', 'territory', 'hq', 'region', 'place']],
-  ['current_company',  ['current company', 'company', 'organisation', 'organization', 'employer', 'working at', 'present company']],
-  ['referred_by_name', ['referred by', 'referred by name', 'reference', 'referrer', 'referred', 'source name']],
-  ['referrer_emp_id',  ['emp id', 'employee id', 'referrer emp id', 'empid', 'emp code', 'employee code']],
-  ['hr_comment',       ['hr comment', 'comment', 'comments', 'remarks', 'remark', 'notes', 'note']],
-  ['source',           ['source', 'channel', 'lead source']],
+  ['emp_code',      ['empcode', 'emp code', 'employee code', 'emp id', 'employee id', 'code']],
+  ['full_name',     ['name', 'full name', 'employee name', 'employee']],
+  ['hq_name',       ['hq name', 'hq', 'headquarter', 'headquarters', 'head quarter', 'location', 'area']],
+  ['asm_name',      ['asm name', 'asm', 'area sales manager']],
+  ['rsm_name',      ['rsm name', 'rsm', 'regional sales manager']],
+  ['sbu_head_name', ['sbu head', 'sbu head name', 'sbu', 'business head']],
+  ['personal_email',['email', 'email id', 'mail', 'personal email', 'email address']],
+  ['phone',         ['mobile', 'mobile number', 'mobile no', 'phone', 'phone number', 'contact', 'contact number']],
+  ['date_of_join',  ['doj', 'date of joining', 'date of join', 'joining date', 'joined']],
+  ['status',        ['active inactive', 'active  inactive', 'active', 'status', 'active status', 'employment status']],
 ]
+
+/** "Active" / "Inactive" (and friends) -> the people.status value */
+function readStatus(v: string | null): string | null {
+  const t = String(v ?? '').trim().toLowerCase()
+  if (!t) return null
+  if (/^(y|yes|a|active|working|1|true)$/.test(t)) return 'active'
+  if (/^(n|no|i|inactive|exited|left|resigned|0|false)$/.test(t)) return 'exited'
+  if (t.includes('active') && !t.includes('in')) return 'active'
+  if (t.includes('inactive') || t.includes('exit') || t.includes('left')) return 'exited'
+  return null
+}
+
+/** Sheets dates come through as dd/mm/yyyy, dd-mm-yyyy or an ISO string. */
+function readDate(v: string | null): string | null {
+  const t = String(v ?? '').trim()
+  if (!t) return null
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10)
+  const m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/)
+  if (m) {
+    const [, d, mo, y] = m
+    const year = y.length === 2 ? `20${y}` : y
+    return `${year}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  const parsed = new Date(t)
+  return isNaN(+parsed) ? null : parsed.toISOString().slice(0, 10)
+}
 
 const norm = (h: string) => String(h || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
 
@@ -86,11 +114,11 @@ Deno.serve(async (req) => {
     return json({ error: 'Not configured yet: set the GOOGLE_SERVICE_ACCOUNT secret (see README)' }, 500)
   }
 
-  const { data: setting } = await svc.from('app_settings').select('value').eq('key', 'candidate_sheet').maybeSingle()
-  const sheetId = (setting?.value?.sheet_id as string) || Deno.env.get('CANDIDATE_SHEET_ID') || ''
-  const tab = (setting?.value?.tab as string) || Deno.env.get('CANDIDATE_SHEET_TAB') || 'Master Sheet'
+  const { data: setting } = await svc.from('app_settings').select('value').eq('key', 'employee_sheet').maybeSingle()
+  const sheetId = (setting?.value?.sheet_id as string) || Deno.env.get('EMPLOYEE_SHEET_ID') || ''
+  const tab = (setting?.value?.tab as string) || Deno.env.get('EMPLOYEE_SHEET_TAB') || 'Master Sheet'
   if (!sheetId) {
-    return json({ error: 'No candidate sheet set — add it under Settings → Company → Candidate sheet' }, 400)
+    return json({ error: 'No employee sheet set — add it under Settings → Company' }, 400)
   }
 
   try {
@@ -128,14 +156,16 @@ Deno.serve(async (req) => {
       return i == null ? null : (String(r[i] ?? '').trim() || null)
     }
 
-    // existing candidates, keyed by mobile then by lowercased name
-    const { data: existing } = await svc.from('candidates').select('id, full_name, phone')
+    // existing people, keyed by emp code, then mobile, then name
+    const { data: existing } = await svc.from('people').select('id, emp_code, full_name, phone')
+    const byCode = new Map<string, string>()
     const byPhone = new Map<string, string>()
     const byName = new Map<string, string>()
-    for (const c of existing || []) {
-      const p = normalizeMobile(c.phone)
-      if (p) byPhone.set(p, c.id)
-      byName.set(String(c.full_name || '').trim().toLowerCase(), c.id)
+    for (const p of existing || []) {
+      if (p.emp_code) byCode.set(String(p.emp_code).trim().toUpperCase(), p.id)
+      const ph = normalizeMobile(p.phone)
+      if (ph) byPhone.set(ph, p.id)
+      byName.set(String(p.full_name || '').trim().toLowerCase(), p.id)
     }
 
     const toInsert: Record<string, unknown>[] = []
@@ -151,8 +181,9 @@ Deno.serve(async (req) => {
         if (r.some((v) => String(v ?? '').trim())) skipped.push({ row: rowNo, name: '', reason: 'no name' })
         continue
       }
+      const code = (cell(r, 'emp_code') || '').toUpperCase() || null
       const phone = normalizeMobile(cell(r, 'phone'))
-      const key = phone || `name:${name.toLowerCase()}`
+      const key = code ? `code:${code}` : phone ? `ph:${phone}` : `name:${name.toLowerCase()}`
       if (seen.has(key)) {
         skipped.push({ row: rowNo, name, reason: 'duplicate of an earlier row' })
         continue
@@ -161,22 +192,28 @@ Deno.serve(async (req) => {
 
       const patch: Record<string, unknown> = {
         full_name: name,
+        emp_code: code,
+        hq_name: cell(r, 'hq_name'),
+        asm_name: cell(r, 'asm_name'),
+        rsm_name: cell(r, 'rsm_name'),
+        sbu_head_name: cell(r, 'sbu_head_name'),
+        personal_email: cell(r, 'personal_email'),
         phone,
-        designation: cell(r, 'designation'),
-        area: cell(r, 'area'),
-        current_company: cell(r, 'current_company'),
-        referred_by_name: cell(r, 'referred_by_name'),
-        referrer_emp_id: cell(r, 'referrer_emp_id'),
-        hr_comment: cell(r, 'hr_comment'),
-        source: cell(r, 'source') || `Google Sheet — ${tab}`,
+        date_of_join: readDate(cell(r, 'date_of_join')),
+        status: readStatus(cell(r, 'status')),
+        department: 'Sales',
       }
+      // blank cells leave the app's value alone rather than wiping it
       for (const k of Object.keys(patch)) if (patch[k] == null) delete patch[k]
       patch.full_name = name
-      patch.phone = phone
 
-      const id = (phone && byPhone.get(phone)) || byName.get(name.toLowerCase())
+      const id =
+        (code && byCode.get(code)) ||
+        (phone && byPhone.get(phone)) ||
+        byName.get(name.toLowerCase())
+
       if (id) toUpdate.push({ id, patch })
-      else toInsert.push({ ...patch, created_by: appUser.id })
+      else toInsert.push({ ...patch, status: patch.status || 'active', created_by: appUser.id })
     }
 
     if (dryRun) {
@@ -188,11 +225,11 @@ Deno.serve(async (req) => {
     }
 
     if (toInsert.length) {
-      const { error } = await svc.from('candidates').insert(toInsert)
+      const { error } = await svc.from('people').insert(toInsert)
       if (error) throw new Error(error.message)
     }
     for (const u of toUpdate) {
-      const { error } = await svc.from('candidates').update(u.patch).eq('id', u.id)
+      const { error } = await svc.from('people').update(u.patch).eq('id', u.id)
       if (error) throw new Error(error.message)
     }
 

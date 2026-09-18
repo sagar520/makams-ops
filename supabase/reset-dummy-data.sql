@@ -23,7 +23,6 @@ delete from public.person_checklists;
 delete from public.person_documents;
 delete from public.upload_links;
 delete from public.learnapp_actions;
-delete from public.sheet_sync_log;
 
 update public.form_responses set candidate_id = null;
 delete from public.referral_submissions;

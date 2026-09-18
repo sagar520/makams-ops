@@ -88,15 +88,6 @@ insert into public.learnapp_actions (person_id, action, status, detail, created_
   ('20000000-0000-4000-8000-000000000024', 'disable', 'ok', 'suresh.p@gmail.com', '10000000-0000-4000-8000-000000000001', '2026-08-08 10:15:00+05:30'),
   ('20000000-0000-4000-8000-000000000026', 'disable', 'ok', '', '10000000-0000-4000-8000-000000000001', '2026-07-04 10:15:00+05:30');
 
-insert into public.sheet_sync_log (status, rows, detail, created_by, created_at) values
-  ('ok', 12, null, '10000000-0000-4000-8000-000000000001', '2026-06-27 10:15:00+05:30'),
-  ('ok', 13, null, '10000000-0000-4000-8000-000000000001', '2026-07-11 10:15:00+05:30'),
-  ('ok', 14, null, '10000000-0000-4000-8000-000000000001', '2026-07-24 10:15:00+05:30'),
-  ('ok', 15, null, '10000000-0000-4000-8000-000000000001', '2026-08-07 10:15:00+05:30'),
-  ('ok', 16, null, '10000000-0000-4000-8000-000000000001', '2026-08-15 10:15:00+05:30'),
-  ('ok', 17, null, '10000000-0000-4000-8000-000000000001', '2026-08-27 10:15:00+05:30'),
-  ('ok', 18, null, '10000000-0000-4000-8000-000000000001', '2026-09-05 10:15:00+05:30'),
-  ('ok', 19, null, '10000000-0000-4000-8000-000000000001', '2026-09-12 10:15:00+05:30');
 
 insert into public.form_links (id, form_id, token, source_name, referrer_name, referrer_phone, expires_at, active, submission_count, created_by, created_at) values
   ('30000000-0000-4000-8000-000000000032', (select id from public.form_templates where kind='referral' limit 1), 'dummy-src-ramesh', 'Ramesh Kumar (TalentBridge)', 'Ramesh Kumar (TalentBridge)', '+919815000110', now() + interval '5 days', true, 5, '10000000-0000-4000-8000-000000000001', '2026-07-04 10:15:00+05:30'),
@@ -377,6 +368,7 @@ update public.people set sales_role = 'sales',
 update public.people set sales_role = 'asm', asm_name = null where emp_code in ('MKM-001','MKM-002');
 update public.people set asm_name = case when hq_name in ('Ludhiana','Khanna','Patiala') then 'Deepak Verma' else 'Sunita Kaur' end where sales_role = 'sales';
 update public.people set rsm_name = 'Deepak Verma' where sales_role in ('sales','asm');
+update public.people set sbu_head_name = 'Aakash Agarwal';
 
 -- candidates: referral attribution
 update public.candidates set referred_by_name = coalesce(referred_by_name, source);

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import Papa from 'papaparse'
 import { Upload, ArrowRight, CheckCircle2 } from 'lucide-react'
-import { supabase, callFunction } from '../../lib/supabase'
+import { supabase } from '../../lib/supabase'
 import { PageHeader, Card, Button, Select, Table, Th, Td, Tr, Badge, useToast } from '../../components/ui'
 
 const TARGETS = [
@@ -155,7 +155,6 @@ export default function ImportPeople() {
       qc.invalidateQueries({ queryKey: ['people'] })
       if (!errors.length) {
         toast(`Imported ${inserted} people`)
-        callFunction('sync-sheet', {}).catch(() => {})
       }
     } finally {
       setImporting(false)

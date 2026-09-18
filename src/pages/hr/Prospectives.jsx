@@ -116,7 +116,7 @@ export default function Prospectives() {
           <tbody>
             {filtered.map((r) => (
               <Tr key={r.id} className={PROSPECTIVE_ROW_CLS[r.status]}>
-                <Td className={cx('font-medium', r.status === 'rejected' ? 'text-slate-500 line-through' : 'text-slate-900')}>
+                <Td className="font-medium text-slate-900">
                   <button className="hover:text-red-600" onClick={() => setEditing(r)}>{r.full_name}</button>
                   {r.candidate_id && <Badge tone="slate" className="ml-2">from DB</Badge>}
                 </Td>

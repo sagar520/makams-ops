@@ -60,38 +60,38 @@ export const PEOPLE_STATUS = [
 ]
 
 export const PROSPECTIVE_STATUS = [
-  { value: 'new', label: 'New', tone: 'gray' },
+  { value: 'new', label: 'New', tone: 'blue' },
   { value: 'contacted', label: 'Contacted', tone: 'indigo' },
   { value: 'interested', label: 'Interested', tone: 'violet' },
-  { value: 'interview_scheduled', label: 'Interview Scheduled', tone: 'red' },
-  { value: 'offer_letter_sent', label: 'Offer Letter Sent', tone: 'red' },
-  { value: 'joined', label: 'Joined', tone: 'blue' },
-  { value: 'rejected', label: 'Rejected', tone: 'gray' },
+  { value: 'interview_scheduled', label: 'Interview Scheduled', tone: 'amber' },
+  { value: 'offer_letter_sent', label: 'Offer Letter Sent', tone: 'green' },
+  { value: 'joined', label: 'Joined', tone: 'green' },
+  { value: 'rejected', label: 'Rejected', tone: 'red' },
 ]
 
 export const prospectiveStatusMeta = (v) => PROSPECTIVE_STATUS.find((s) => s.value === v) || { label: v, tone: 'gray' }
 
-// The pipeline reads as a ramp: neutral at the start, deepening red as it
-// warms up, black once they've joined, and faded out when rejected.
+// Each stage gets its own hue so the sheet reads at a glance:
+// blue → indigo → violet → orange → green, with red for rejected.
 export const PROSPECTIVE_STATUS_CLS = {
-  new: 'border-slate-300 bg-white text-slate-700',
-  contacted: 'border-red-200 bg-red-50 text-red-800',
-  interested: 'border-red-300 bg-red-100 text-red-900',
-  interview_scheduled: 'border-red-400 bg-red-200 text-red-900',
-  offer_letter_sent: 'border-red-600 bg-red-600 text-white',
-  joined: 'border-slate-900 bg-slate-900 text-white',
-  rejected: 'border-slate-200 bg-slate-100 text-slate-400',
+  new: 'border-blue-300 bg-blue-100 text-blue-900',
+  contacted: 'border-indigo-300 bg-indigo-100 text-indigo-900',
+  interested: 'border-violet-300 bg-violet-100 text-violet-900',
+  interview_scheduled: 'border-orange-300 bg-orange-100 text-orange-900',
+  offer_letter_sent: 'border-emerald-300 bg-emerald-100 text-emerald-900',
+  joined: 'border-emerald-600 bg-emerald-600 text-white',
+  rejected: 'border-red-300 bg-red-100 text-red-900',
 }
 
-// row tint — the same ramp, a few shades lighter
+// row tint — the same hues, plus a solid stripe down the left edge
 export const PROSPECTIVE_ROW_CLS = {
-  new: 'bg-white hover:bg-slate-50',
-  contacted: 'bg-red-50/50 hover:bg-red-50',
-  interested: 'bg-red-50 hover:bg-red-100/70',
-  interview_scheduled: 'bg-red-100/70 hover:bg-red-100',
-  offer_letter_sent: 'bg-red-100 hover:bg-red-200/70',
-  joined: 'bg-slate-100 hover:bg-slate-200/70',
-  rejected: 'bg-slate-50/70 hover:bg-slate-100',
+  new: 'border-l-4 border-l-blue-500 bg-blue-50/70 hover:bg-blue-100/80',
+  contacted: 'border-l-4 border-l-indigo-500 bg-indigo-50/70 hover:bg-indigo-100/80',
+  interested: 'border-l-4 border-l-violet-500 bg-violet-50/70 hover:bg-violet-100/80',
+  interview_scheduled: 'border-l-4 border-l-orange-500 bg-orange-50/80 hover:bg-orange-100/80',
+  offer_letter_sent: 'border-l-4 border-l-emerald-500 bg-emerald-50/80 hover:bg-emerald-100/80',
+  joined: 'border-l-4 border-l-emerald-600 bg-emerald-100/80 hover:bg-emerald-200/70',
+  rejected: 'border-l-4 border-l-red-500 bg-red-50/70 hover:bg-red-100/70',
 }
 
 export const PROSPECTIVE_SOURCES = ['LI / Indeed', 'Internal Referral', 'Other']

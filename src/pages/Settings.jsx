@@ -547,48 +547,50 @@ function IntegrationsTab() {
   const [syncing, setSyncing] = useState(false)
   const qc = useQueryClient()
 
-  const { data: syncLog = [] } = useQuery({
-    queryKey: ['sheet-sync-log'],
-    queryFn: async () => (await supabase.from('sheet_sync_log').select('*').order('created_at', { ascending: false }).limit(8)).data || [],
+  const { data: sheet } = useQuery({
+    queryKey: ['employee-sheet-setting'],
+    queryFn: async () => {
+      const { data } = await supabase.from('app_settings').select('value').eq('key', 'employee_sheet').maybeSingle()
+      return data?.value || null
+    },
   })
   const { data: learnappLog = [] } = useQuery({
     queryKey: ['learnapp-log-all'],
     queryFn: async () => (await supabase.from('learnapp_actions').select('*, people(full_name)').order('created_at', { ascending: false }).limit(8)).data || [],
   })
 
-  const syncNow = async () => {
+  const importNow = async () => {
     setSyncing(true)
     try {
-      const res = await callFunction('sync-sheet', {})
-      toast(`Sheet updated — ${res?.rows ?? '?'} rows`)
+      const res = await callFunction('import-employees', { dry_run: true })
+      if (res.error) throw new Error(res.error)
+      toast(`Dry run: ${res.scanned} rows — ${res.would_add} new, ${res.would_update} to update`)
     } catch (e) {
-      toast(`Sync failed: ${e.message}`, 'error')
+      toast(e.message, 'error')
     } finally {
       setSyncing(false)
-      qc.invalidateQueries({ queryKey: ['sheet-sync-log'] })
     }
   }
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Card title="Google Sheet sync" actions={<Button size="sm" variant="secondary" icon={RefreshCw} loading={syncing} onClick={syncNow}>Sync now</Button>}>
+      <Card title="Employee Google Sheet" actions={<Button size="sm" variant="secondary" icon={RefreshCw} loading={syncing} onClick={importNow}>Test read</Button>}>
         <div className="flex items-start gap-3">
-          <Sheet className="mt-0.5 h-6 w-6 text-emerald-600" />
+          <Sheet className="mt-0.5 h-6 w-6 text-red-600" />
           <div className="text-sm text-slate-600">
-            <p>This app is the source of truth. Every save pushes the full employee list to your Google Sheet; use <em>Sync now</em> to force it.</p>
-            <p className="mt-1 text-xs text-slate-400">Configured via edge-function secrets: GOOGLE_SERVICE_ACCOUNT, SHEET_ID, SHEET_TAB — see the README.</p>
+            <p>
+              The sheet is the source of truth for the roster. Employees → <em>Import from sheet</em> pulls it in;
+              nothing is ever written back, so the sheet cannot be overwritten by the app.
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              Tab: <span className="font-medium">{sheet?.tab || 'Master Sheet'}</span> · configured via the
+              GOOGLE_SERVICE_ACCOUNT secret — see the README.
+            </p>
+            {sheet?.sheet_id && (
+              <p className="mt-2 truncate rounded bg-slate-50 px-2 py-1 font-mono text-[11px] text-slate-500">{sheet.sheet_id}</p>
+            )}
           </div>
         </div>
-        <ul className="mt-4 space-y-1.5 border-t border-slate-100 pt-3">
-          {syncLog.map((l) => (
-            <li key={l.id} className="flex items-center gap-2 text-xs">
-              <Badge tone={l.status === 'ok' ? 'green' : 'red'}>{l.status}</Badge>
-              <span className="text-slate-500">{l.rows != null ? `${l.rows} rows` : ''} {l.detail || ''}</span>
-              <span className="ml-auto text-slate-400">{fmtDateTime(l.created_at)}</span>
-            </li>
-          ))}
-          {!syncLog.length && <li className="text-xs text-slate-400">No syncs yet.</li>}
-        </ul>
       </Card>
 
       <Card title="CRIL learnapp">

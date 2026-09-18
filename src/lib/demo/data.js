@@ -20,7 +20,7 @@ export function buildSeedStore() {
 
   const app_settings = [
     {
-      key: 'candidate_sheet',
+      key: 'employee_sheet',
       value: { sheet_id: '1LjZIDyXeDG2pEiS2KGSj8l2Ts-GMwNGAJ1eoFON3Kzc', tab: 'Master Sheet' },
       updated_at: iso(1),
     },
@@ -38,18 +38,18 @@ export function buildSeedStore() {
 
   const sales = (o) => ({ department: 'Sales', state: 'Punjab', ...o })
   const people = [
-    sales({ id: 'p-01', emp_code: 'RM001', full_name: 'Deepak Verma', status: 'active', sales_role: 'rsm', hq_name: 'Ludhiana', asm_name: null, rsm_name: null, employment_type: 'full_time', date_of_join: '2023-04-10', personal_email: 'deepak.v@gmail.com', phone: '+919811022331', monthly_gross: 65000, learnapp_user_id: 'lu-01', learnapp_email: 'rm001@example.com', learnapp_status: 'active', created_at: iso(88) }),
-    sales({ id: 'p-02', emp_code: 'ASM001', full_name: 'Sunita Kaur', status: 'active', sales_role: 'asm', hq_name: 'Ludhiana', asm_name: null, rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2023-08-01', personal_email: 'sunita.k@gmail.com', phone: '+919822011445', monthly_gross: 48000, learnapp_user_id: 'lu-02', learnapp_email: 'asm001@example.com', learnapp_status: 'active', created_at: iso(88) }),
-    sales({ id: 'p-03', emp_code: 'ASM002', full_name: 'Manpreet Singh', status: 'active', sales_role: 'asm', hq_name: 'Jalandhar', asm_name: null, rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2024-01-15', phone: '+919779055662', monthly_gross: 45000, learnapp_user_id: 'lu-03', learnapp_status: 'active', created_at: iso(80) }),
-    sales({ id: 'p-04', emp_code: 'SALES001', full_name: 'Arvind Kumar', status: 'active', sales_role: 'sales', hq_name: 'Ludhiana', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2024-09-20', phone: '+919654033217', monthly_gross: 26000, learnapp_user_id: 'lu-05', learnapp_email: 'sales001@example.com', learnapp_status: 'active', created_at: iso(70) }),
-    sales({ id: 'p-05', emp_code: 'SALES002', full_name: 'Ritu Sharma', status: 'active', sales_role: 'sales', hq_name: 'Khanna', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2025-02-11', personal_email: 'ritu.s@gmail.com', phone: '+919953088112', monthly_gross: 25000, created_at: iso(60) }),
-    sales({ id: 'p-06', emp_code: 'SALES003', full_name: 'Gurpreet Gill', status: 'active', sales_role: 'sales', hq_name: 'Jalandhar', asm_name: 'Manpreet Singh', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2025-07-01', phone: '+919876144990', monthly_gross: 22000, created_at: iso(50) }),
-    sales({ id: 'p-07', emp_code: 'SALES004', full_name: 'Karan Mehra', status: 'active', sales_role: 'sales', hq_name: 'Amritsar', asm_name: 'Manpreet Singh', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2025-08-18', personal_email: 'karan.mehra@gmail.com', phone: '+919910022334', monthly_gross: 24000, created_at: iso(45) }),
-    sales({ id: 'p-08', emp_code: 'SALES005', full_name: 'Meena Devi', status: 'active', sales_role: 'sales', hq_name: 'Patiala', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', employment_type: 'contract', date_of_join: '2025-11-03', phone: '+919780012034', monthly_gross: 20000, created_at: iso(42) }),
-    sales({ id: 'p-09', emp_code: 'SALES006', full_name: 'Vikram Rathi', status: 'active', sales_role: 'sales', hq_name: 'Bathinda', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: dateStr(-6), personal_email: 'vikram.rathi@gmail.com', phone: '+919899566778', monthly_gross: 24000, created_at: iso(12) }),
-    sales({ id: 'p-10', emp_code: null, full_name: 'Neha Malhotra', status: 'joining', sales_role: 'sales', hq_name: 'Ludhiana', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', personal_email: 'neha.malhotra11@gmail.com', phone: '+919811190233', monthly_gross: 23000, notes: 'Offer accepted, joining 1st Oct.', created_at: iso(9) }),
-    sales({ id: 'p-11', emp_code: null, full_name: 'Tarun Sethi', status: 'joining', sales_role: 'sales', hq_name: 'Jalandhar', asm_name: 'Manpreet Singh', rsm_name: 'Deepak Verma', personal_email: 'tarun.sethi@outlook.com', phone: '+919988766554', monthly_gross: 25000, notes: 'Final round cleared, docs pending.', created_at: iso(4) }),
-    sales({ id: 'p-12', emp_code: 'SALES000', full_name: 'Suresh Pillai', status: 'exited', sales_role: 'sales', hq_name: 'Ludhiana', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2022-11-01', date_of_exit: dateStr(-40), exit_reason: 'Relocated to Kochi', learnapp_user_id: 'lu-12', learnapp_email: 'sales000@example.com', learnapp_status: 'disabled', created_at: iso(89) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-01', emp_code: 'RM001', full_name: 'Deepak Verma', status: 'active', sales_role: 'rsm', hq_name: 'Ludhiana', asm_name: null, rsm_name: null, employment_type: 'full_time', date_of_join: '2023-04-10', personal_email: 'deepak.v@gmail.com', phone: '+919811022331', monthly_gross: 65000, learnapp_user_id: 'lu-01', learnapp_email: 'rm001@example.com', learnapp_status: 'active', created_at: iso(88) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-02', emp_code: 'ASM001', full_name: 'Sunita Kaur', status: 'active', sales_role: 'asm', hq_name: 'Ludhiana', asm_name: null, rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2023-08-01', personal_email: 'sunita.k@gmail.com', phone: '+919822011445', monthly_gross: 48000, learnapp_user_id: 'lu-02', learnapp_email: 'asm001@example.com', learnapp_status: 'active', created_at: iso(88) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-03', emp_code: 'ASM002', full_name: 'Manpreet Singh', status: 'active', sales_role: 'asm', hq_name: 'Jalandhar', asm_name: null, rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2024-01-15', phone: '+919779055662', monthly_gross: 45000, learnapp_user_id: 'lu-03', learnapp_status: 'active', created_at: iso(80) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-04', emp_code: 'SALES001', full_name: 'Arvind Kumar', status: 'active', sales_role: 'sales', hq_name: 'Ludhiana', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2024-09-20', phone: '+919654033217', monthly_gross: 26000, learnapp_user_id: 'lu-05', learnapp_email: 'sales001@example.com', learnapp_status: 'active', created_at: iso(70) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-05', emp_code: 'SALES002', full_name: 'Ritu Sharma', status: 'active', sales_role: 'sales', hq_name: 'Khanna', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2025-02-11', personal_email: 'ritu.s@gmail.com', phone: '+919953088112', monthly_gross: 25000, created_at: iso(60) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-06', emp_code: 'SALES003', full_name: 'Gurpreet Gill', status: 'active', sales_role: 'sales', hq_name: 'Jalandhar', asm_name: 'Manpreet Singh', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2025-07-01', phone: '+919876144990', monthly_gross: 22000, created_at: iso(50) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-07', emp_code: 'SALES004', full_name: 'Karan Mehra', status: 'active', sales_role: 'sales', hq_name: 'Amritsar', asm_name: 'Manpreet Singh', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2025-08-18', personal_email: 'karan.mehra@gmail.com', phone: '+919910022334', monthly_gross: 24000, created_at: iso(45) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-08', emp_code: 'SALES005', full_name: 'Meena Devi', status: 'active', sales_role: 'sales', hq_name: 'Patiala', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', employment_type: 'contract', date_of_join: '2025-11-03', phone: '+919780012034', monthly_gross: 20000, created_at: iso(42) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-09', emp_code: 'SALES006', full_name: 'Vikram Rathi', status: 'active', sales_role: 'sales', hq_name: 'Bathinda', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: dateStr(-6), personal_email: 'vikram.rathi@gmail.com', phone: '+919899566778', monthly_gross: 24000, created_at: iso(12) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-10', emp_code: null, full_name: 'Neha Malhotra', status: 'joining', sales_role: 'sales', hq_name: 'Ludhiana', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', personal_email: 'neha.malhotra11@gmail.com', phone: '+919811190233', monthly_gross: 23000, notes: 'Offer accepted, joining 1st Oct.', created_at: iso(9) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-11', emp_code: null, full_name: 'Tarun Sethi', status: 'joining', sales_role: 'sales', hq_name: 'Jalandhar', asm_name: 'Manpreet Singh', rsm_name: 'Deepak Verma', personal_email: 'tarun.sethi@outlook.com', phone: '+919988766554', monthly_gross: 25000, notes: 'Final round cleared, docs pending.', created_at: iso(4) }),
+    sales({ sbu_head_name: 'Aakash Agarwal', id: 'p-12', emp_code: 'SALES000', full_name: 'Suresh Pillai', status: 'exited', sales_role: 'sales', hq_name: 'Ludhiana', asm_name: 'Sunita Kaur', rsm_name: 'Deepak Verma', employment_type: 'full_time', date_of_join: '2022-11-01', date_of_exit: dateStr(-40), exit_reason: 'Relocated to Kochi', learnapp_user_id: 'lu-12', learnapp_email: 'sales000@example.com', learnapp_status: 'disabled', created_at: iso(89) }),
   ]
 
   const person_documents = [
@@ -201,10 +201,6 @@ export function buildSeedStore() {
     { id: 'rs-03', response_id: 'fr-02', link_id: 'fl-02', source: 'Employee referral', referred_by_name: 'Deepak Verma', referrer_emp_id: 'RM001', referrer_phone: '+919811022331', full_name: 'Harjinder Pal', designation: 'Senior Sales Executive', area: 'Mohali', current_company: 'Chandigarh Botanicals', phone: '+919876120034', status: 'approved', candidate_id: 'c-03', reviewed_by: 'u-priya', reviewed_at: iso(24), created_at: iso(25), updated_at: iso(24) },
   ]
 
-  const sheet_sync_log = [
-    { id: 'ss-01', status: 'ok', rows: 12, detail: null, created_by: 'u-priya', created_at: iso(2, 18) },
-    { id: 'ss-02', status: 'ok', rows: 12, detail: null, created_by: 'u-aakash', created_at: iso(6, 12) },
-  ]
 
   const po_types = [
     { id: 'pt-raw', name: 'Raw material', active: true, created_at: iso(90) },
@@ -347,7 +343,7 @@ export function buildSeedStore() {
   return {
     app_users, app_settings, people, person_documents, upload_links,
     checklist_templates, checklist_template_items, person_checklists, person_checklist_items,
-    learnapp_actions, sheet_sync_log,
+    learnapp_actions,
     candidates, prospectives, form_templates, form_links,
     form_responses: [...form_responses, form_responses_extra],
     referral_submissions,

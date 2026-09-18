@@ -120,12 +120,12 @@ export function SearchInput({ value, onChange, placeholder = 'Search…', classN
 const badgeTones = {
   gray: 'bg-slate-100 text-slate-600',
   slate: 'bg-slate-200 text-slate-700',
-  green: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
-  red: 'bg-red-600 text-white',
-  amber: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
-  blue: 'bg-slate-900 text-white',
-  indigo: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
-  violet: 'bg-red-100 text-red-800 ring-1 ring-inset ring-red-200',
+  green: 'bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-300',
+  red: 'bg-red-100 text-red-800 ring-1 ring-inset ring-red-300',
+  amber: 'bg-orange-100 text-orange-800 ring-1 ring-inset ring-orange-300',
+  blue: 'bg-blue-100 text-blue-800 ring-1 ring-inset ring-blue-300',
+  indigo: 'bg-indigo-100 text-indigo-800 ring-1 ring-inset ring-indigo-300',
+  violet: 'bg-violet-100 text-violet-800 ring-1 ring-inset ring-violet-300',
 }
 
 export function Badge({ tone = 'gray', className, children }) {
