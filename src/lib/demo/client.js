@@ -787,6 +787,8 @@ async function invokeFunction(name, body = {}) {
       matched_columns: ['emp_code', 'full_name', 'hq_name', 'asm_name', 'rsm_name', 'sbu_head_name', 'personal_email', 'phone', 'date_of_join', 'status'],
       levels: { sales: 11, asm: 2, rsm: 1, unknown: 0 },
       unknown_prefixes: [],
+      vacant: 2,
+      vacancies: [{ row: 5, designation: 'VSO', location: 'Moga' }, { row: 11, designation: 'ASO', location: 'Khanna' }],
       scanned: 14,
       ...(body.dry_run ? { would_add: 2, would_update: 12 } : { added: 2, updated: 12 }),
       skipped: [{ row: 9, name: '', reason: 'no name' }],

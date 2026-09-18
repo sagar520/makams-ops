@@ -136,6 +136,8 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}))
   const dryRun = !!body.dry_run
+  const auto = !!body.auto                       // fired by the app, not a person
+  const MIN_GAP_MINUTES = Number(body.min_gap_minutes ?? 60)
 
   const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT')
   if (!saJson) {
@@ -143,10 +145,17 @@ Deno.serve(async (req) => {
   }
 
   const { data: setting } = await svc.from('app_settings').select('value').eq('key', 'employee_sheet').maybeSingle()
-  const sheetId = (setting?.value?.sheet_id as string) || Deno.env.get('EMPLOYEE_SHEET_ID') || ''
-  const tab = (setting?.value?.tab as string) || Deno.env.get('EMPLOYEE_SHEET_TAB') || 'Master Sheet'
+  const cfg = (setting?.value ?? {}) as Record<string, unknown>
+  const sheetId = (cfg.sheet_id as string) || Deno.env.get('EMPLOYEE_SHEET_ID') || ''
+  const tab = (cfg.tab as string) || Deno.env.get('EMPLOYEE_SHEET_TAB') || 'Master Sheet'
   if (!sheetId) {
     return json({ error: 'No employee sheet set — add it under Settings → Company' }, 400)
+  }
+
+  // An automatic run only reaches Google when the last one is old enough.
+  const lastAt = cfg.last_import_at ? new Date(String(cfg.last_import_at)) : null
+  if (auto && !dryRun && lastAt && Date.now() - lastAt.getTime() < MIN_GAP_MINUTES * 60_000) {
+    return json({ ok: true, skipped: true, last_import_at: cfg.last_import_at, last_result: cfg.last_result ?? null })
   }
 
   try {
@@ -202,6 +211,7 @@ Deno.serve(async (req) => {
     const seen = new Set<string>()
     const levels: Record<string, number> = { sales: 0, asm: 0, rsm: 0, unknown: 0 }
     const unknownLevels = new Set<string>()
+    const vacancies: { row: number; designation: string | null; location: string | null }[] = []
 
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i]
@@ -211,6 +221,15 @@ Deno.serve(async (req) => {
         if (r.some((v) => String(v ?? '').trim())) skipped.push({ row: rowNo, name: '', reason: 'no name' })
         continue
       }
+
+      // "Vacant" is a position nobody holds — not a person. Record where the
+      // hole is and move on; it must not become an employee or a candidate.
+      if (/^vacant\b/i.test(name)) {
+        const v = splitHq(cell(r, 'hq_name'))
+        vacancies.push({ row: rowNo, designation: v.designation, location: v.hq })
+        continue
+      }
+
       const code = (cell(r, 'emp_code') || '').toUpperCase() || null
       const phone = normalizeMobile(cell(r, 'phone'))
       const key = code ? `code:${code}` : phone ? `ph:${phone}` : `name:${name.toLowerCase()}`
@@ -260,6 +279,7 @@ Deno.serve(async (req) => {
         matched_columns: Object.keys(col),
         scanned: rows.length - 1, would_add: toInsert.length, would_update: toUpdate.length, skipped,
         levels, unknown_prefixes: [...unknownLevels].slice(0, 20),
+        vacancies, vacant: vacancies.length,
       })
     }
 
@@ -272,12 +292,29 @@ Deno.serve(async (req) => {
       if (error) throw new Error(error.message)
     }
 
-    return json({
-      ok: true, tab,
+    const result = {
+      ok: true, tab, auto,
       matched_columns: Object.keys(col),
       scanned: rows.length - 1, added: toInsert.length, updated: toUpdate.length, skipped,
       levels, unknown_prefixes: [...unknownLevels].slice(0, 20),
+      vacancies, vacant: vacancies.length,
+    }
+
+    // remember when we last read the sheet, so automatic runs stay cheap
+    await svc.from('app_settings').upsert({
+      key: 'employee_sheet',
+      value: {
+        ...cfg,
+        last_import_at: new Date().toISOString(),
+        last_result: {
+          scanned: result.scanned, added: result.added,
+          updated: result.updated, vacant: vacancies.length,
+        },
+        vacancies,
+      },
     })
+
+    return json(result)
   } catch (e) {
     return json({ error: (e as Error).message }, 500)
   }

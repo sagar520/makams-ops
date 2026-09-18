@@ -122,24 +122,24 @@ export default function Prospectives() {
           <tbody>
             {filtered.map((r) => (
               <Tr key={r.id} className={PROSPECTIVE_ROW_CLS[r.status]}>
-                <Td className="font-medium text-slate-900">
-                  <button className="hover:text-red-600" onClick={() => setEditing(r)}>{r.full_name}</button>
+                <Td className="font-semibold">
+                  <button className="hover:underline" onClick={() => setEditing(r)}>{r.full_name}</button>
                   {r.candidate_id && <Badge tone="slate" className="ml-2">from DB</Badge>}
                 </Td>
-                <Td className="whitespace-nowrap text-slate-600">{r.department || 'Sales'}</Td>
-                <Td>{r.area || '—'}</Td>
-                <Td className="text-slate-500">{r.contact || '—'}</Td>
-                <Td className="text-slate-600">{r.source || 'Other'}</Td>
+                <Td className="whitespace-nowrap opacity-80">{r.department || 'Sales'}</Td>
+                <Td className="opacity-80">{r.area || '—'}</Td>
+                <Td className="opacity-70">{r.contact || '—'}</Td>
+                <Td className="opacity-70">{r.source || 'Other'}</Td>
                 <Td>
                   <Select
-                    className={cx('w-44 py-1 text-xs font-medium', PROSPECTIVE_STATUS_CLS[r.status])}
+                    className={cx('w-52 py-1 text-xs font-medium', PROSPECTIVE_STATUS_CLS[r.status])}
                     value={r.status}
                     onChange={(e) => setStatus(r, e.target.value)}
                   >
                     {PROSPECTIVE_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </Select>
                 </Td>
-                <Td className="text-xs text-slate-400">{fmtDate(r.updated_at || r.created_at)}</Td>
+                <Td className="whitespace-nowrap text-xs opacity-60">{fmtDate(r.updated_at || r.created_at)}</Td>
                 <Td right>
                   <div className="flex justify-end gap-1">
                     {r.resume_path ? (

@@ -45,8 +45,9 @@ await expectText('The active hiring sheet', 'root lands on Prospectives')
   else { failed++; console.log('FAIL  Overview still in the sidebar') }
 }
 
-// 2. Employees (sales-only)
+// 2. Employees (sales-only), with the roster auto-synced from the HR sheet
 await page.goto(`${BASE}/#/people`)
+await expectText('synced from the HR sheet', 'roster auto-syncs on open')
 await expectText('Deepak Verma', 'employees list renders')
 await expectText('RM001', 'EMP IDs shown')
 await expectText('Ludhiana', 'Location column shown')
@@ -222,6 +223,7 @@ await expectText('Mohit Saini', 'copied row appears on the sheet')
   await modal.locator('button:has-text("Dry run")').click()
   await page.waitForSelector('text=Dry run — nothing written', { timeout: 8000 })
   await expectText('emp_code', 'dry run reports the matched columns')
+  await expectText('vacant position', 'dry run lists vacant positions')
   await modal.locator('button', { hasText: /^Import$/ }).click()
   await page.waitForSelector('text=2 added, 12 updated', { timeout: 10000 }).catch(() => {})
   await page.keyboard.press('Escape')

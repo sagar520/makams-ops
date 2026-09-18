@@ -139,6 +139,14 @@ set — you can go live without them and add them later.
   `ASM`/`DRSM` → Sales Manager, `RSM`/`AGM` → Regional Manager. An unrecognised prefix is
   left whole as the location and the level is not touched; the import result lists any
   prefixes it didn't know.
+- **The app reads the sheet by itself.** Opening Employees triggers a sync, throttled
+  server-side to at most once an hour, and the page says when it last read the sheet and
+  what changed. The Import button is still there for a dry run or an immediate re-read.
+  `supabase/optional-nightly-sync.sql` adds a 02:30 IST cron run if you want the roster
+  current even when nobody logs in.
+- A row whose **Name is "Vacant"** is an open position, not a person: it is never
+  imported and never reaches the Candidates DB. The import result lists the vacant
+  designation + location so you can see where to hire.
 - People are matched on **EmpCode** first, then mobile, then name — so importing again
   updates instead of duplicating. A blank cell leaves the app's existing value alone
   rather than wiping it. **Dry run** reports what would change without writing.

@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserPlus, Upload, Users, RefreshCw, Sheet, Search } from 'lucide-react'
 import { supabase, callFunction } from '../../lib/supabase'
 import { PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, EmptyState, FullPageSpinner, Modal, useToast } from '../../components/ui'
 import { peopleStatusMeta, salesRoleLabel } from '../../lib/constants'
-import { fmtDate } from '../../lib/format'
+import { fmtDate, fmtDateTime } from '../../lib/format'
 import { fmtMobile } from '../../lib/phone'
 
 export default function PeopleList() {
@@ -13,8 +13,28 @@ export default function PeopleList() {
   const status = params.get('status') || 'active'
   const [q, setQ] = useState('')
   const [importing, setImporting] = useState(false)
+  const qc = useQueryClient()
   const navigate = useNavigate()
   const toast = useToast()
+
+  // The HR sheet is the roster: pull anything new in whenever this page opens.
+  // The function itself throttles, so this is cheap on repeat visits.
+  const autoSync = useQuery({
+    queryKey: ['employees-auto-sync'],
+    staleTime: 30 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const res = await callFunction('import-employees', { auto: true })
+      if (res.error) throw new Error(res.error)
+      return res
+    },
+  })
+
+  useEffect(() => {
+    if (autoSync.data && !autoSync.data.skipped && (autoSync.data.added || autoSync.data.updated)) {
+      qc.invalidateQueries({ queryKey: ['people'] })
+    }
+  }, [autoSync.data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: people, isLoading } = useQuery({
     queryKey: ['people'],
@@ -54,7 +74,7 @@ export default function PeopleList() {
     <div>
       <PageHeader
         title="Employees"
-        sub="The sales force. The HR Google Sheet is the roster — import it here to bring the app up to date."
+        sub={syncLine(autoSync)}
         actions={
           <>
             <Button variant="secondary" icon={Sheet} onClick={() => setImporting(true)}>Import from sheet</Button>
@@ -193,6 +213,13 @@ function SheetImportModal({ onClose }) {
               {result.dry_run ? result.would_update : result.updated} updated
               {result.skipped?.length ? ` · ${result.skipped.length} skipped` : ''}
             </p>
+            {result.vacant > 0 && (
+              <p className="mt-1 text-orange-800">
+                {result.vacant} vacant position{result.vacant === 1 ? '' : 's'}:{' '}
+                {result.vacancies.slice(0, 8).map((v) => [v.designation, v.location].filter(Boolean).join(' ')).join(', ')}
+                {result.vacancies.length > 8 ? ` +${result.vacancies.length - 8} more` : ''}
+              </p>
+            )}
             {result.levels && (
               <p className="mt-1 text-slate-600">
                 Levels read from HQ Name: {result.levels.sales} sales rep, {result.levels.asm} sales manager,{' '}
@@ -220,4 +247,18 @@ function SheetImportModal({ onClose }) {
       </div>
     </Modal>
   )
+}
+
+/** One quiet line about the automatic sheet sync. */
+function syncLine(q) {
+  if (q.isFetching) return 'The sales force — checking the HR sheet for changes…'
+  const d = q.data
+  if (q.error) return `The sales force. Automatic sheet sync is not running: ${q.error.message}`
+  if (!d) return 'The sales force. The HR Google Sheet is the roster.'
+  const at = d.skipped ? d.last_import_at : new Date().toISOString()
+  const when = at ? fmtDateTime(at) : 'just now'
+  const r = d.skipped ? d.last_result : d
+  const changed = r ? `${r.added} new, ${r.updated} updated` : 'no changes'
+  const vacant = r?.vacant ? `, ${r.vacant} vacant position${r.vacant === 1 ? '' : 's'}` : ''
+  return `The sales force, synced from the HR sheet — last read ${when} (${changed}${vacant}).`
 }

@@ -1,8 +1,11 @@
 import { createContext, useContext, useEffect, useRef, useState, forwardRef } from 'react'
 import { Loader2, Search, X, AlertTriangle, CheckCircle2, Info as InfoIcon } from 'lucide-react'
 
+import { twMerge } from 'tailwind-merge'
+
+/** join class names, with later Tailwind utilities winning over earlier ones */
 export function cx(...args) {
-  return args.filter(Boolean).join(' ')
+  return twMerge(args.filter(Boolean).join(' '))
 }
 
 /* ---------------- Buttons ---------------- */
@@ -194,7 +197,7 @@ export function EmptyState({ icon: Icon, title, hint, action, className }) {
 export function Table({ children, className }) {
   return (
     <div className={cx('overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm', className)}>
-      <table className="w-full min-w-max text-left text-sm">{children}</table>
+      <table className="w-full min-w-max text-left text-sm text-slate-700">{children}</table>
     </div>
   )
 }
