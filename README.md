@@ -162,6 +162,14 @@ set — you can go live without them and add them later.
 
 ### Importing the HR interview workbook
 
+`supabase/upgrade-prospectives-all.sql` applies migrations 0020–0022 in order in one file
+(division and the extra departments, CV numbers, the full record, then the widening to five
+digits). Run it before the import — the pieces depend on each other, and running them out of
+order fails on a missing sequence. It is idempotent, so running it on a project that already
+has some of them changes nothing.
+
+#### Generating the import
+
 `scripts/build-prospective-import.py <workbook.xlsx> > supabase/import-prospectives.sql` turns
 the interview workbook into a SQL import for `public.prospectives`. It reads all three sheets
 (Latest, then the 2026 and 2025 dashboards, newest wins on a repeated CV number), maps the
