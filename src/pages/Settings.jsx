@@ -191,6 +191,7 @@ function CompanyTab() {
           <Field label="Email"><Input value={form.email || ''} onChange={set('email')} /></Field>
         </div>
       </Card>
+      <EmployeeSheetCard />
       <Card title="Purchase order defaults" actions={<Button size="sm" onClick={save} loading={saving}>Save</Button>}>
         <div className="space-y-4">
           <Field label="PO number prefix" hint={`Numbers look like ${form.po_prefix || 'PO'}/26-27/0001 (resets each financial year)`}>
@@ -202,6 +203,61 @@ function CompanyTab() {
         </div>
       </Card>
     </div>
+  )
+}
+
+/** Where the HR roster lives. Employees → Import from sheet reads this. */
+function EmployeeSheetCard() {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [form, setForm] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  const { data } = useQuery({
+    queryKey: ['employee-sheet-setting'],
+    queryFn: async () =>
+      (await supabase.from('app_settings').select('value').eq('key', 'employee_sheet').maybeSingle()).data?.value || {},
+  })
+
+  useEffect(() => { if (data && !form) setForm({ sheet_id: '', tab: 'Master Sheet', ...data }) }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!form) return null
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  /** accept a full Google Sheets URL as well as a bare id */
+  const cleanId = (v) => {
+    const m = String(v || '').match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
+    return (m ? m[1] : String(v || '')).trim()
+  }
+
+  const save = async () => {
+    const value = { sheet_id: cleanId(form.sheet_id), tab: (form.tab || 'Master Sheet').trim() }
+    if (!value.sheet_id) return toast('Paste the sheet link or its id', 'error')
+    setSaving(true)
+    const { error } = await supabase.from('app_settings').upsert({ key: 'employee_sheet', value })
+    setSaving(false)
+    if (error) return toast(error.message, 'error')
+    setForm(value)
+    qc.invalidateQueries({ queryKey: ['employee-sheet-setting'] })
+    toast('Employee sheet saved')
+  }
+
+  return (
+    <Card title="Employee Google Sheet" actions={<Button size="sm" onClick={save} loading={saving}>Save</Button>}>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Field label="Sheet link or id" required className="sm:col-span-2"
+          hint="Paste the whole Google Sheets URL — the id is picked out of it">
+          <Input value={form.sheet_id || ''} onChange={set('sheet_id')} placeholder="https://docs.google.com/spreadsheets/d/…" />
+        </Field>
+        <Field label="Tab" hint="The tab the roster lives on">
+          <Input value={form.tab || ''} onChange={set('tab')} placeholder="Master Sheet" />
+        </Field>
+      </div>
+      <p className="mt-3 text-xs text-slate-400">
+        Share the sheet with the service account (Viewer is enough), then use Employees → Import from sheet.
+        The app only ever reads this sheet.
+      </p>
+    </Card>
   )
 }
 

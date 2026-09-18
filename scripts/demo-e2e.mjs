@@ -336,6 +336,13 @@ await expectText('Add field', 'form builder opens')
 }
 await page.keyboard.press('Escape')
 await clickTabAndExpect('button:has-text("Checklists")', 'Standard onboarding', 'checklists managed in settings')
+{
+  // the employee sheet is editable in Settings → Company
+  await clickTabAndExpect('button:has-text("Company")', 'Employee Google Sheet', 'employee sheet card in settings')
+  const v = await page.locator('label:has-text("Sheet link or id") input').inputValue()
+  if (v.includes('1LjZIDyXeDG2pEiS2KGSj8l2Ts')) console.log('PASS  sheet id prefilled from the setting')
+  else { failed++; console.log(`FAIL  sheet id not prefilled (${v})`) }
+}
 
 // 9. Purchase side (regression)
 await page.goto(`${BASE}/#/pos`)
