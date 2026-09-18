@@ -56,7 +56,7 @@ Never set `VITE_DEMO` on the real deployment.
    first sign-in.
 3. Run the migrations, either way:
    - **Dashboard**: SQL Editor → paste and run `0001_core.sql`, `0002_hr.sql`,
-     `0003_purchase.sql`, … through `0016_manage_users.sql` **in order** (or paste the
+     `0003_purchase.sql`, … through `0017_prospective_blank_company.sql` **in order** (or paste the
      combined `supabase/makams-ops-schema.sql` once).
    - **CLI**: `supabase link --project-ref <ref>` then `supabase db push`.
 
@@ -241,7 +241,8 @@ set — you can go live without them and add them later.
   they name an area.
 - **Where candidates come from**: referral links, plus automatic mirroring. Every new
   **employee**, and every new **Sales** prospective, is copied into the Candidates DB
-  tagged `Current company: CRIL` / `Referred by: CRIL HR`, so the DB is the one place
+  tagged `Referred by: CRIL HR` — employees also carry `Current company: CRIL`, while
+  prospectives leave it blank, since they don't work there yet — so the DB is the one place
   that knows about everybody. Nothing is duplicated — a matching phone (last 10 digits)
   or an identical name means the row is left alone — and rows pushed the other way
   (Candidates → Prospectives) don't come back round. Prospectives outside Sales (PMT,

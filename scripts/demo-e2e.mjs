@@ -185,8 +185,12 @@ console.log('PASS  prospective status changed inline')
   await page.waitForSelector('text=Mirror Test Prospect', { timeout: 10000 })
   const row = page.locator('tr', { hasText: 'Mirror Test Prospect' })
   const text = await row.innerText()
-  if (/CRIL HR/.test(text) && /CRIL/.test(text)) console.log('PASS  prospective mirrored into the DB as CRIL / CRIL HR')
+  if (/CRIL HR/.test(text)) console.log('PASS  prospective mirrored into the DB, referred by CRIL HR')
   else { failed++; console.log(`FAIL  prospective mirrored (${text})`) }
+  // a prospective does not work at CRIL, so the company stays blank
+  const company = (await row.locator('td').nth(4).innerText()).trim()
+  if (!/CRIL/.test(company)) console.log('PASS  current company blank for prospective rows')
+  else { failed++; console.log(`FAIL  current company should be blank (got "${company}")`) }
 }
 {
   // the DB calls it Location now, not Area

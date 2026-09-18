@@ -129,7 +129,7 @@ function hydrateTable(table) {
 /* ---------------- write behaviour ---------------- */
 
 /** the Candidates DB holds everyone: employees and prospectives are mirrored into it */
-function ensureCandidate({ full_name, phone, designation, area, source }) {
+function ensureCandidate({ full_name, phone, designation, area, source, current_company = null }) {
   const key = String(phone || '').replace(/\D/g, '').slice(-10)
   const dup = store.candidates.find(
     (c) => (key && String(c.phone || '').replace(/\D/g, '').slice(-10) === key) ||
@@ -140,7 +140,7 @@ function ensureCandidate({ full_name, phone, designation, area, source }) {
     ...insertDefaults.candidates(),
     full_name: String(full_name).trim(), phone: phone || null,
     designation: designation || null, area: area || null,
-    current_company: 'CRIL', referred_by_name: 'CRIL HR', source: source || 'Makams Ops',
+    current_company, referred_by_name: 'CRIL HR', source: source || 'Makams Ops',
   })
 }
 
@@ -172,13 +172,13 @@ const insertDefaults = {
 
 function afterWrite(table, rows, mode) {
   if (mode === 'insert' && table === 'people') {
-    for (const p of rows) ensureCandidate({ ...p, area: p.hq_name, source: 'Employee' })
+    for (const p of rows) ensureCandidate({ ...p, area: p.hq_name, source: 'Employee', current_company: 'CRIL' })
   }
   if (mode === 'insert' && table === 'prospectives') {
     for (const p of rows) {
       if (p.candidate_id) continue                                   // came FROM the Candidates DB
       if ((p.department || 'Sales') !== 'Sales') continue             // sales pipeline only
-      ensureCandidate({ ...p, phone: p.contact, source: 'Prospective' })
+      ensureCandidate({ full_name: p.full_name, phone: p.contact, designation: p.designation, area: p.area, source: 'Prospective' })
     }
   }
   if (table === 'po_items') {
@@ -810,7 +810,7 @@ async function invokeFunction(name, body = {}) {
       for (const r of rows) {
         if (store.people.some((p) => p.emp_code === r.emp_code)) continue
         store.people.unshift({ ...insertDefaults.people(), ...r, department: 'Sales', sales_role: r.sales_role || 'sales' })
-        ensureCandidate({ ...r, area: r.hq_name, source: 'Employee' })
+        ensureCandidate({ ...r, area: r.hq_name, source: 'Employee', current_company: 'CRIL' })
       }
     }
     return {
