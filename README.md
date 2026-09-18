@@ -190,8 +190,8 @@ set — you can go live without them and add them later.
    and create at least one **approval rule** — POs cannot be submitted until a rule
    matches them. A sensible start: one catch-all rule (any type, any location, any
    amount) with you as the single approver; refine later.
-4. **Employees → Import from sheet**: dry-run first, then import the roster from the HR
-   Google Sheet. (People → Import CSV is still there as a fallback.)
+4. **Employees**: opening the page syncs the roster from the HR Google Sheet. Use
+   Import from sheet → Dry run first if you want to see what it will do.
 
 ## 7. How the pieces work
 

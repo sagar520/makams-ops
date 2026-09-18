@@ -58,7 +58,13 @@ await expectText('Ludhiana', 'Location column shown')
   if (!missing.length) console.log('PASS  employee columns as specified')
   else { failed++; console.log(`FAIL  employee columns missing: ${missing.join(', ')}`) }
 }
-await clickTabAndExpect('button:has-text("Joining")', 'Neha Malhotra', 'joining tab')
+{
+  const tabs = await page.locator('button').allInnerTexts()
+  const gone = ['Joining', 'Exited', 'Not joined'].filter((t) => tabs.some((b) => b.trim().startsWith(t)))
+  if (!gone.length) console.log('PASS  Joining / Exited / Not joined tabs removed')
+  else { failed++; console.log(`FAIL  tabs still present: ${gone.join(', ')}`) }
+}
+await clickTabAndExpect('button:has-text("Everyone")', 'Suresh Pillai', 'Everyone tab shows inactive people too')
 
 // 3. Person detail + checklist + learnapp emp-id login
 await page.goto(`${BASE}/#/people/p-09`)
@@ -214,8 +220,19 @@ await page.goto(`${BASE}/#/prospectives`)
 await expectText('Mohit Saini', 'copied row appears on the sheet')
 
 {
+  // the Candidates DB has no sheet import of its own any more
+  await page.goto(`${BASE}/#/candidates`)
+  await page.waitForTimeout(400)
+  const buttons = await page.locator('button').allInnerTexts()
+  if (!buttons.some((b) => /import from sheet/i.test(b))) console.log('PASS  no sheet import on the Candidates DB')
+  else { failed++; console.log('FAIL  Candidates DB still offers a sheet import') }
+}
+{
   // the employee roster comes from the HR sheet; nothing is written back
   await page.goto(`${BASE}/#/people`)
+  const peopleButtons = await page.locator('button').allInnerTexts()
+  if (!peopleButtons.some((b) => /import csv/i.test(b))) console.log('PASS  CSV import removed from Employees')
+  else { failed++; console.log('FAIL  Import CSV still on Employees') }
   await page.click('button:has-text("Import from sheet")')
   await page.waitForSelector('text=Import employees from the HR sheet', { timeout: 8000 })
   await expectText('Master Sheet', 'employee import names the tab')

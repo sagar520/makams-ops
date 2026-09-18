@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Briefcase, Link2, Copy, Ban, Trash2, ClipboardList, Check, Inbox, Pencil, X, Search, Clock, ShieldCheck, RefreshCw, Sheet } from 'lucide-react'
-import { supabase, formUrl, callFunction } from '../../lib/supabase'
+import { Plus, Briefcase, Link2, Copy, Ban, Trash2, ClipboardList, Check, Inbox, Pencil, X, Search, Clock, ShieldCheck } from 'lucide-react'
+import { supabase, formUrl } from '../../lib/supabase'
 import {
   PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, Select, Input, Textarea,
   Field, Modal, EmptyState, FullPageSpinner, Card, Checkbox, useToast, cx,
@@ -273,7 +273,6 @@ function Database() {
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState(null)
   const [pickingId, setPickingId] = useState(null)
-  const [importing, setImporting] = useState(false)
 
   // areas HR may search — names only, no candidate rows
   const { data: areas = [] } = useQuery({
@@ -412,10 +411,7 @@ function Database() {
           <SearchInput value={q} onChange={setQ} placeholder="Filter these results…" className="w-72" />
           {area && !full && <Badge tone="indigo">{filtered.length} in “{area}”</Badge>}
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" icon={Sheet} onClick={() => setImporting(true)}>Import from sheet</Button>
-          <Button icon={Plus} onClick={() => setEditing('new')}>Add candidate</Button>
-        </div>
+        <Button icon={Plus} onClick={() => setEditing('new')}>Add candidate</Button>
       </div>
 
       {isLoading ? (
@@ -472,7 +468,6 @@ function Database() {
       )}
 
       {editing && <CandidateModal candidate={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={refresh} />}
-      {importing && <SheetImportModal onClose={() => setImporting(false)} onDone={refresh} />}
     </div>
   )
 }
@@ -511,87 +506,6 @@ function CommentCell({ value, onSave }) {
         if (e.key === 'Escape') setEditing(false)
       }}
     />
-  )
-}
-
-/** Pull the Candidates DB from the Google Sheet HR maintains. */
-function SheetImportModal({ onClose, onDone }) {
-  const toast = useToast()
-  const [busy, setBusy] = useState(null)      // 'check' | 'import'
-  const [result, setResult] = useState(null)
-
-  const { data: setting } = useQuery({
-    queryKey: ['candidate-sheet-setting'],
-    queryFn: async () => {
-      const { data } = await supabase.from('app_settings').select('value').eq('key', 'candidate_sheet').maybeSingle()
-      return data?.value || null
-    },
-  })
-
-  const run = async (dryRun) => {
-    setBusy(dryRun ? 'check' : 'import')
-    setResult(null)
-    try {
-      const res = await callFunction('import-candidates', { dry_run: dryRun })
-      if (res.error) throw new Error(res.error)
-      setResult(res)
-      if (!dryRun) {
-        toast(`${res.added} added, ${res.updated} updated`)
-        onDone?.()
-      }
-    } catch (e) {
-      toast(e.message, 'error')
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  return (
-    <Modal open onClose={onClose} title="Import candidates from Google Sheet" size="lg"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>Close</Button>
-          <Button variant="secondary" icon={Search} loading={busy === 'check'} onClick={() => run(true)}>Dry run</Button>
-          <Button icon={RefreshCw} loading={busy === 'import'} onClick={() => run(false)}>Import</Button>
-        </>
-      }>
-      <div className="space-y-4">
-        <p className="text-sm text-slate-600">
-          Reads the <span className="font-medium">{setting?.tab || 'Master Sheet'}</span> tab and brings every row into
-          the database. Row 1 must be the header — columns are matched by name, so the sheet can stay as it is.
-          Rows are matched on phone number (or failing that, name), so importing twice updates instead of duplicating.
-        </p>
-        {setting?.sheet_id && (
-          <p className="truncate rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs text-slate-500">{setting.sheet_id}</p>
-        )}
-        <p className="text-xs text-slate-400">
-          Try <span className="font-medium">Dry run</span> first — it reports what would change without writing anything.
-        </p>
-
-        {result && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-            <p className="font-medium text-slate-800">
-              {result.dry_run ? 'Dry run — nothing written' : 'Imported'}
-            </p>
-            <p className="mt-1 text-slate-600">
-              {result.scanned} rows scanned · {result.dry_run ? result.would_add : result.added} new ·{' '}
-              {result.dry_run ? result.would_update : result.updated} updated
-              {result.skipped?.length ? ` · ${result.skipped.length} skipped` : ''}
-            </p>
-            {result.matched_columns?.length > 0 && (
-              <p className="mt-1.5 text-xs text-slate-400">Columns matched: {result.matched_columns.join(', ')}</p>
-            )}
-            {result.skipped?.length > 0 && (
-              <ul className="mt-2 max-h-40 space-y-0.5 overflow-y-auto text-xs text-slate-500">
-                {result.skipped.slice(0, 40).map((sk, i) => (
-                  <li key={i}>Row {sk.row}{sk.name ? ` (${sk.name})` : ''} — {sk.reason}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </div>
-    </Modal>
   )
 }
 

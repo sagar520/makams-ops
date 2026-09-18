@@ -1,10 +1,10 @@
 import { useMemo, useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { UserPlus, Upload, Users, RefreshCw, Sheet, Search } from 'lucide-react'
+import { UserPlus, Users, RefreshCw, Sheet, Search } from 'lucide-react'
 import { supabase, callFunction } from '../../lib/supabase'
 import { PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, EmptyState, FullPageSpinner, Modal, useToast } from '../../components/ui'
-import { peopleStatusMeta, salesRoleLabel } from '../../lib/constants'
+import { salesRoleLabel } from '../../lib/constants'
 import { fmtDate, fmtDateTime } from '../../lib/format'
 import { fmtMobile } from '../../lib/phone'
 
@@ -50,13 +50,12 @@ export default function PeopleList() {
   })
 
   const counts = useMemo(() => {
-    const c = { active: 0, joining: 0, exited: 0, not_joined: 0 }
-    for (const p of people || []) c[p.status] = (c[p.status] || 0) + 1
-    return c
+    const list = people || []
+    return { active: list.filter((p) => p.status === 'active').length, all: list.length }
   }, [people])
 
   const filtered = useMemo(() => {
-    let list = (people || []).filter((p) => p.status === status)
+    let list = status === 'all' ? (people || []) : (people || []).filter((p) => p.status === status)
     if (q.trim()) {
       const needle = q.trim().toLowerCase()
       list = list.filter((p) =>
@@ -78,7 +77,6 @@ export default function PeopleList() {
         actions={
           <>
             <Button variant="secondary" icon={Sheet} onClick={() => setImporting(true)}>Import from sheet</Button>
-            <Button variant="secondary" icon={Upload} onClick={() => navigate('/people/import')}>Import CSV</Button>
             <Button icon={UserPlus} onClick={() => navigate('/people/new')}>Add person</Button>
           </>
         }
@@ -88,9 +86,7 @@ export default function PeopleList() {
         <Tabs
           tabs={[
             { value: 'active', label: 'Active', count: counts.active },
-            { value: 'joining', label: 'Joining', count: counts.joining },
-            { value: 'exited', label: 'Exited', count: counts.exited },
-            { value: 'not_joined', label: 'Not joined', count: counts.not_joined },
+            { value: 'all', label: 'Everyone', count: counts.all },
           ]}
           value={status}
           onChange={(v) => setParams(v === 'active' ? {} : { status: v })}
@@ -101,9 +97,8 @@ export default function PeopleList() {
       {!filtered.length ? (
         <EmptyState
           icon={Users}
-          title={q ? 'No matches' : `No ${peopleStatusMeta(status).label.toLowerCase()} people yet`}
-          hint={status === 'active' && !q ? 'Import your current employee Google Sheet to get started.' : undefined}
-          action={status === 'active' && !q ? <Button variant="secondary" icon={Upload} onClick={() => navigate('/people/import')}>Import CSV</Button> : undefined}
+          title={q ? 'No matches' : 'Nobody here yet'}
+          hint={!q ? 'The roster comes from the HR Google Sheet — it syncs when this page opens.' : undefined}
         />
       ) : (
         <Table>
@@ -116,8 +111,9 @@ export default function PeopleList() {
               <Th>ASM</Th>
               <Th>Contact</Th>
               <Th>Email</Th>
-              <Th>{status === 'exited' ? 'Exit date' : 'Joining Date'}</Th>
+              <Th>Joining Date</Th>
               <Th>LearnApp Status</Th>
+              {status === 'all' && <Th>Status</Th>}
             </tr>
           </thead>
           <tbody>
@@ -134,12 +130,19 @@ export default function PeopleList() {
                 <Td className="text-slate-500">{p.asm_name || '—'}</Td>
                 <Td className="whitespace-nowrap text-slate-500">{p.phone ? fmtMobile(p.phone) : '—'}</Td>
                 <Td className="text-slate-500">{p.personal_email || p.work_email || '—'}</Td>
-                <Td className="whitespace-nowrap">{fmtDate(status === 'exited' ? p.date_of_exit : p.date_of_join)}</Td>
+                <Td className="whitespace-nowrap">{fmtDate(p.date_of_join)}</Td>
                 <Td>
                   {p.learnapp_status === 'active' && <Badge tone="green">Active</Badge>}
                   {p.learnapp_status === 'disabled' && <Badge tone="gray">Disabled</Badge>}
                   {!p.learnapp_status && <span className="text-slate-300">—</span>}
                 </Td>
+                {status === 'all' && (
+                  <Td>
+                    {p.status === 'active'
+                      ? <Badge tone="green">Active</Badge>
+                      : <Badge tone="gray">{p.status === 'exited' ? 'Inactive' : p.status}</Badge>}
+                  </Td>
+                )}
               </Tr>
             ))}
           </tbody>
