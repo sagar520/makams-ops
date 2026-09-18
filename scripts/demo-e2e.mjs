@@ -159,13 +159,13 @@ console.log('PASS  prospective status changed inline')
 {
   // filter to Internal Referral: Harjinder Pal (pr-02) stays, Sandeep Walia (LI / Indeed) disappears
   const selects = page.locator('div.mb-4 select')
-  await selects.nth(3).selectOption('Internal Referral')
+  await selects.nth(4).selectOption('Internal Referral')
   await page.waitForTimeout(400)
   const gone = await page.locator('td', { hasText: 'Sandeep Walia' }).count()
   const kept = await page.locator('td', { hasText: 'Harjinder Pal' }).count()
   if (gone === 0 && kept > 0) console.log('PASS  source filter works')
   else { failed++; console.log('FAIL  source filter works') }
-  await selects.nth(3).selectOption('')
+  await selects.nth(4).selectOption('')
 }
 {
   // department column + filter
@@ -180,6 +180,50 @@ console.log('PASS  prospective status changed inline')
   if (off === 0 && on > 0) console.log('PASS  department filter works')
   else { failed++; console.log('FAIL  department filter works') }
   await page.locator('div.mb-4 select').nth(2).selectOption('')
+  await page.waitForTimeout(400)
+
+  // QC and Manufacturing were added to the department list
+  const deptOpts = (await page.locator('div.mb-4 select').nth(2).innerText()).toLowerCase()
+  if (deptOpts.includes('qc') && deptOpts.includes('manufacturing')) console.log('PASS  QC and Manufacturing in departments')
+  else { failed++; console.log('FAIL  new departments missing') }
+}
+{
+  // division column + filter
+  const head = (await page.locator('thead').first().innerText()).toLowerCase()
+  if (head.includes('division')) console.log('PASS  division column shown')
+  else { failed++; console.log('FAIL  division column missing') }
+
+  const divSel = page.locator('div.mb-4 select').nth(3)
+  const divOpts = (await divSel.innerText()).toLowerCase()
+  if (['poultry', 'cattle', 'ho', 'manufacturing'].every((d) => divOpts.includes(d))) console.log('PASS  division options complete')
+  else { failed++; console.log(`FAIL  division options (${divOpts.replace(/\s+/g, ' ')})`) }
+
+  await divSel.selectOption('Poultry')
+  await page.waitForTimeout(400)
+  const notPoultry = await page.locator('td', { hasText: 'Ankit Malhotra' }).count()   // Cattle
+  const isPoultry = await page.locator('td', { hasText: 'Sandeep Walia' }).count()     // Poultry
+  if (notPoultry === 0 && isPoultry > 0) console.log('PASS  division filter works')
+  else { failed++; console.log('FAIL  division filter works') }
+  await divSel.selectOption('')
+  await page.waitForTimeout(400)
+}
+{
+  // CV numbers: column present, seeded rows numbered, search by CV no.
+  const head = (await page.locator('thead').first().innerText()).toLowerCase()
+  if (head.includes('cv no')) console.log('PASS  CV no. column shown')
+  else { failed++; console.log('FAIL  CV no. column missing') }
+
+  const mi = await page.locator('td', { hasText: /^MI\d{4}$/ }).count()
+  if (mi > 0) console.log('PASS  prospectives carry MI#### numbers')
+  else { failed++; console.log('FAIL  no MI#### numbers on the sheet') }
+
+  const search = page.locator('div.mb-4 input[type="search"], div.mb-4 input[placeholder*="CV"]').first()
+  await search.fill('MI0001')
+  await page.waitForTimeout(400)
+  const rows = await page.locator('tbody tr').count()
+  if (rows === 1) console.log('PASS  search by CV no. narrows to one row')
+  else { failed++; console.log(`FAIL  search by CV no. returned ${rows} rows`) }
+  await search.fill('')
   await page.waitForTimeout(400)
 }
 

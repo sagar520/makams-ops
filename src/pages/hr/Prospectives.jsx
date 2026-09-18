@@ -6,7 +6,7 @@ import {
   PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, Select, Input,
   Field, Modal, EmptyState, FullPageSpinner, useToast, cx,
 } from '../../components/ui'
-import { PROSPECTIVE_STATUS, PROSPECTIVE_SOURCES, PROSPECTIVE_DEPARTMENTS, PROSPECTIVE_STATUS_CLS, PROSPECTIVE_ROW_CLS, prospectiveStatusMeta } from '../../lib/constants'
+import { PROSPECTIVE_STATUS, PROSPECTIVE_SOURCES, PROSPECTIVE_DEPARTMENTS, PROSPECTIVE_DIVISIONS, PROSPECTIVE_STATUS_CLS, PROSPECTIVE_ROW_CLS, prospectiveStatusMeta } from '../../lib/constants'
 import { fmtDate } from '../../lib/format'
 
 export default function Prospectives() {
@@ -17,6 +17,7 @@ export default function Prospectives() {
   const [areaFilter, setAreaFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
   const [deptFilter, setDeptFilter] = useState('')
+  const [divFilter, setDivFilter] = useState('')
   const [editing, setEditing] = useState(null) // 'new' | row
   const [opening, setOpening] = useState(null)
 
@@ -47,12 +48,13 @@ export default function Prospectives() {
     if (areaFilter) list = list.filter((r) => r.area === areaFilter)
     if (sourceFilter) list = list.filter((r) => (r.source || 'Other') === sourceFilter)
     if (deptFilter) list = list.filter((r) => (r.department || 'Sales') === deptFilter)
+    if (divFilter) list = list.filter((r) => (r.division || '') === divFilter)
     if (q.trim()) {
       const n = q.trim().toLowerCase()
-      list = list.filter((r) => [r.full_name, r.designation, r.area, r.contact].filter(Boolean).some((v) => v.toLowerCase().includes(n)))
+      list = list.filter((r) => [r.cv_no, r.full_name, r.designation, r.area, r.contact].filter(Boolean).some((v) => v.toLowerCase().includes(n)))
     }
     return list
-  }, [rows, statusFilter, areaFilter, sourceFilter, deptFilter, q])
+  }, [rows, statusFilter, areaFilter, sourceFilter, deptFilter, divFilter, q])
 
   const openResume = async (row) => {
     setOpening(row.id)
@@ -100,11 +102,15 @@ export default function Prospectives() {
           <option value="">All departments</option>
           {PROSPECTIVE_DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}
         </Select>
+        <Select className="w-44" value={divFilter} onChange={(e) => setDivFilter(e.target.value)}>
+          <option value="">All divisions</option>
+          {PROSPECTIVE_DIVISIONS.map((d) => <option key={d}>{d}</option>)}
+        </Select>
         <Select className="w-44" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
           <option value="">All sources</option>
           {PROSPECTIVE_SOURCES.map((s) => <option key={s}>{s}</option>)}
         </Select>
-        <SearchInput value={q} onChange={setQ} placeholder="Search name, designation, area…" className="w-72" />
+        <SearchInput value={q} onChange={setQ} placeholder="Search CV no., name, designation, area…" className="w-72" />
       </div>
 
       {!filtered.length ? (
@@ -117,15 +123,17 @@ export default function Prospectives() {
       ) : (
         <Table>
           <thead>
-            <tr><Th>Name</Th><Th>Department</Th><Th>Area</Th><Th>Contact</Th><Th>Source</Th><Th>Status</Th><Th>Last updated</Th><Th /></tr>
+            <tr><Th>CV no.</Th><Th>Name</Th><Th>Division</Th><Th>Department</Th><Th>Area</Th><Th>Contact</Th><Th>Source</Th><Th>Status</Th><Th>Last updated</Th><Th /></tr>
           </thead>
           <tbody>
             {filtered.map((r) => (
               <Tr key={r.id} className={PROSPECTIVE_ROW_CLS[r.status]}>
+                <Td className="whitespace-nowrap font-mono text-xs opacity-70">{r.cv_no || '—'}</Td>
                 <Td className="font-semibold">
                   <button className="hover:underline" onClick={() => setEditing(r)}>{r.full_name}</button>
                   {r.candidate_id && <Badge tone="slate" className="ml-2">from DB</Badge>}
                 </Td>
+                <Td className="whitespace-nowrap opacity-80">{r.division || '—'}</Td>
                 <Td className="whitespace-nowrap opacity-80">{r.department || 'Sales'}</Td>
                 <Td className="opacity-80">{r.area || '—'}</Td>
                 <Td className="opacity-70">{r.contact || '—'}</Td>
@@ -163,7 +171,7 @@ export default function Prospectives() {
   )
 }
 
-const EMPTY = { full_name: '', department: 'Sales', designation: '', area: '', contact: '', source: 'Other', status: 'new' }
+const EMPTY = { full_name: '', division: '', department: 'Sales', designation: '', area: '', contact: '', source: 'Other', status: 'new' }
 
 const RESUME_OK = /\.(pdf|docx?|jpe?g|png)$/i
 
@@ -238,7 +246,7 @@ function ProspectiveModal({ row, onClose }) {
   }
 
   return (
-    <Modal open onClose={onClose} title={row ? row.full_name : 'Add prospective'}
+    <Modal open onClose={onClose} title={row ? `${row.full_name}${row.cv_no ? ` · ${row.cv_no}` : ''}` : 'Add prospective'}
       footer={
         <>
           {row && <Button variant="dangerSubtle" icon={Trash2} onClick={remove} className="mr-auto">Remove</Button>}
@@ -247,7 +255,16 @@ function ProspectiveModal({ row, onClose }) {
         </>
       }>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Name" required className="sm:col-span-2"><Input value={form.full_name} onChange={set('full_name')} autoFocus={!row} /></Field>
+        <Field label="Name" required className="sm:col-span-2"
+          hint={row ? `CV no. ${row.cv_no || '—'}` : 'A CV number is assigned automatically when you save'}>
+          <Input value={form.full_name} onChange={set('full_name')} autoFocus={!row} />
+        </Field>
+        <Field label="Division">
+          <Select value={form.division || ''} onChange={set('division')}>
+            <option value="">Not set</option>
+            {PROSPECTIVE_DIVISIONS.map((d) => <option key={d}>{d}</option>)}
+          </Select>
+        </Field>
         <Field label="Department" hint="Only Sales prospectives are mirrored into the Candidates DB">
           <Select value={form.department || 'Sales'} onChange={set('department')}>
             {PROSPECTIVE_DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}

@@ -234,12 +234,16 @@ before it is handed over.
 - **Employee document requests** (send-a-link uploads) are currently switched off in
   the UI by request; the backend for them remains in place if wanted later. HR can
   still upload documents directly on a person's Documents tab.
-- **Prospectives**: the flat hiring sheet HR works daily — Name, Designation, Area,
-  Department (Sales / PMT / Marketing / Doctor / Other HO Functions / Other), Contact,
-  Source (LI / Indeed, Internal Referral, Other), Status and Last updated.
-  Status is colour-coded and changed inline (New → Contacted → Interested → Interview
-  Scheduled → Offer Letter Sent → Joined, plus Rejected), with status/area/source
-  filters. Each row can carry an optional **resume** (private
+- **Prospectives**: the flat hiring sheet HR works daily — CV no., Name, Division
+  (Poultry / Cattle / HO / Manufacturing), Department (Sales / PMT / Marketing / Doctor /
+  QC / Manufacturing / Other HO Functions / Other), Area, Contact, Source (LI / Indeed,
+  Internal Referral, Other), Status and Last updated. **CV no.** is a running unique ID,
+  `MI0001` upwards, handed out by a Postgres sequence through an insert trigger, so every
+  row gets one however it was created and no two ever collide; it is never edited by hand,
+  and a rejected insert leaves a gap in the run. Status is colour-coded and changed inline
+  (New → Contacted → Interested → Interview Scheduled → Offer Letter Sent → Joined, plus
+  Rejected), with status/area/department/division/source filters and a search box that
+  also matches the CV number. Each row can carry an optional **resume** (private
   `prospective-resumes` bucket, HR-only, opened through a short-lived signed URL).
 - **Candidates DB & referral links**: the raw referral pool. Every link is **issued to
   someone** — an employee picked from the roster, or a named outside source (consultant,

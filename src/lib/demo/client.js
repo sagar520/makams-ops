@@ -144,6 +144,14 @@ function ensureCandidate({ full_name, phone, designation, area, source, current_
   })
 }
 
+/** MI0001, MI0002, … — mirrors the prospective_cv_seq sequence in Postgres. */
+const nextCvNo = () => {
+  const used = (store.prospectives || [])
+    .map((r) => Number(String(r.cv_no || '').replace(/^MI/, '')))
+    .filter((n) => Number.isFinite(n) && n > 0)
+  return 'MI' + String((used.length ? Math.max(...used) : 0) + 1).padStart(4, '0')
+}
+
 const insertDefaults = {
   app_users: () => ({ id: genId('u'), auth_id: null, active: true, roles: [], created_at: nowIso(), updated_at: nowIso() }),
   people: () => ({ id: genId('p'), status: 'joining', sales_role: 'sales', department: 'Sales', extra: {}, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
@@ -163,7 +171,7 @@ const insertDefaults = {
   learnapp_actions: () => ({ id: genId('la'), created_by: 'u-aakash', created_at: nowIso() }),
   app_settings: () => ({ updated_at: nowIso() }),
   candidates: () => ({ id: genId('c'), status: 'new', extra: {}, referred_by_name: null, referrer_emp_id: null, picked_at: null, prospective_id: null, hr_comment: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
-  prospectives: () => ({ id: genId('pr'), department: 'Sales', source: 'Other', status: 'new', candidate_id: null, resume_path: null, resume_name: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
+  prospectives: () => ({ id: genId('pr'), cv_no: nextCvNo(), division: null, department: 'Sales', source: 'Other', status: 'new', candidate_id: null, resume_path: null, resume_name: null, created_by: 'u-aakash', created_at: nowIso(), updated_at: nowIso() }),
   referral_submissions: () => ({ id: genId('rs'), status: 'pending', candidate_id: null, reviewed_by: null, reviewed_at: null, created_at: nowIso(), updated_at: nowIso() }),
   form_templates: () => ({ id: genId('ft'), kind: 'general', fields: [], active: true, created_at: nowIso(), updated_at: nowIso() }),
   form_links: () => ({ id: genId('fl'), token: genId('demo-link'), active: true, expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), referrer_name: null, referrer_emp_id: null, referrer_phone: null, submission_count: 0, created_by: 'u-aakash', created_at: nowIso() }),

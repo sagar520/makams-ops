@@ -97,7 +97,9 @@ export const PROSPECTIVE_ROW_CLS = {
   rejected: 'border-l-4 border-l-red-600 bg-red-100 text-red-950 hover:bg-red-200',
 }
 
-export const PROSPECTIVE_DEPARTMENTS = ['Sales', 'PMT', 'Marketing', 'Doctor', 'Other HO Functions', 'Other']
+export const PROSPECTIVE_DEPARTMENTS = ['Sales', 'PMT', 'Marketing', 'Doctor', 'QC', 'Manufacturing', 'Other HO Functions', 'Other']
+
+export const PROSPECTIVE_DIVISIONS = ['Poultry', 'Cattle', 'HO', 'Manufacturing']
 
 export const PROSPECTIVE_SOURCES = ['LI / Indeed', 'Internal Referral', 'Other']
 
