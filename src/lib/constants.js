@@ -44,13 +44,14 @@ export const PROFILE_FIELDS = [
 export const profileFieldLabel = (v) => PROFILE_FIELDS.find((f) => f.value === v)?.label || v
 
 export const SALES_ROLES = [
-  { value: 'sales', label: 'Sales Rep' },
-  { value: 'asm', label: 'ASM (Area Sales Manager)' },
-  { value: 'rsm', label: 'RSM (Regional Sales Manager)' },
+  { value: 'sales', label: 'Sales Rep (VSO / ASO)' },
+  { value: 'asm', label: 'Sales Manager (ASM / DRSM)' },
+  { value: 'rsm', label: 'Regional Manager (RSM / AGM)' },
   { value: 'head_office', label: 'Head Office' },
 ]
 
-export const salesRoleLabel = (v) => ({ sales: 'Sales Rep', asm: 'ASM', rsm: 'RSM', head_office: 'Head Office' }[v] || v || '—')
+export const salesRoleLabel = (v) =>
+  ({ sales: 'Sales Rep', asm: 'Sales Manager', rsm: 'Regional Manager', head_office: 'Head Office' }[v] || v || '—')
 
 export const PEOPLE_STATUS = [
   { value: 'joining', label: 'Joining soon', tone: 'blue' },

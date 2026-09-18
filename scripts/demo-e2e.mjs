@@ -49,7 +49,14 @@ await expectText('The active hiring sheet', 'root lands on Prospectives')
 await page.goto(`${BASE}/#/people`)
 await expectText('Deepak Verma', 'employees list renders')
 await expectText('RM001', 'EMP IDs shown')
-await expectText('Ludhiana', 'HQ column shown')
+await expectText('Ludhiana', 'Location column shown')
+{
+  const head = (await page.locator('thead').first().innerText()).toLowerCase()
+  const want = ['name', 'emp id', 'level', 'location', 'asm', 'contact', 'email', 'joining date', 'learnapp status']
+  const missing = want.filter((w) => !head.includes(w))
+  if (!missing.length) console.log('PASS  employee columns as specified')
+  else { failed++; console.log(`FAIL  employee columns missing: ${missing.join(', ')}`) }
+}
 await clickTabAndExpect('button:has-text("Joining")', 'Neha Malhotra', 'joining tab')
 
 // 3. Person detail + checklist + learnapp emp-id login

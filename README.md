@@ -134,6 +134,11 @@ set — you can go live without them and add them later.
 - Columns are matched by header name, so the sheet needs no particular layout. Recognised:
   HQ Name, ASM Name, RSM Name, SBU Head, EmpCode, Name, Email, Mobile, DOJ,
   Active/Inactive (plus common variants of each).
+- **HQ Name is read as "Designation Location"** — `VSO Ludhiana` becomes designation VSO,
+  location Ludhiana, level Sales Rep. The prefix sets the level: `VSO`/`ASO` → Sales Rep,
+  `ASM`/`DRSM` → Sales Manager, `RSM`/`AGM` → Regional Manager. An unrecognised prefix is
+  left whole as the location and the level is not touched; the import result lists any
+  prefixes it didn't know.
 - People are matched on **EmpCode** first, then mobile, then name — so importing again
   updates instead of duplicating. A blank cell leaves the app's existing value alone
   rather than wiping it. **Dry run** reports what would change without writing.

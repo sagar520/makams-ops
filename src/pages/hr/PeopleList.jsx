@@ -6,6 +6,7 @@ import { supabase, callFunction } from '../../lib/supabase'
 import { PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, EmptyState, FullPageSpinner, Modal, useToast } from '../../components/ui'
 import { peopleStatusMeta, salesRoleLabel } from '../../lib/constants'
 import { fmtDate } from '../../lib/format'
+import { fmtMobile } from '../../lib/phone'
 
 export default function PeopleList() {
   const [params, setParams] = useSearchParams()
@@ -89,13 +90,14 @@ export default function PeopleList() {
           <thead>
             <tr>
               <Th>Name</Th>
-              <Th>EMP ID</Th>
+              <Th>Emp ID</Th>
               <Th>Level</Th>
-              <Th>HQ</Th>
+              <Th>Location</Th>
               <Th>ASM</Th>
               <Th>Contact</Th>
-              <Th>{status === 'exited' ? 'Exit date' : 'Joined'}</Th>
-              <Th>Learnapp</Th>
+              <Th>Email</Th>
+              <Th>{status === 'exited' ? 'Exit date' : 'Joining Date'}</Th>
+              <Th>LearnApp Status</Th>
             </tr>
           </thead>
           <tbody>
@@ -110,8 +112,9 @@ export default function PeopleList() {
                 <Td>{salesRoleLabel(p.sales_role)}</Td>
                 <Td>{p.hq_name || '—'}</Td>
                 <Td className="text-slate-500">{p.asm_name || '—'}</Td>
-                <Td className="text-slate-500">{p.phone || p.personal_email || p.work_email || '—'}</Td>
-                <Td>{fmtDate(status === 'exited' ? p.date_of_exit : p.date_of_join)}</Td>
+                <Td className="whitespace-nowrap text-slate-500">{p.phone ? fmtMobile(p.phone) : '—'}</Td>
+                <Td className="text-slate-500">{p.personal_email || p.work_email || '—'}</Td>
+                <Td className="whitespace-nowrap">{fmtDate(status === 'exited' ? p.date_of_exit : p.date_of_join)}</Td>
                 <Td>
                   {p.learnapp_status === 'active' && <Badge tone="green">Active</Badge>}
                   {p.learnapp_status === 'disabled' && <Badge tone="gray">Disabled</Badge>}
@@ -190,6 +193,18 @@ function SheetImportModal({ onClose }) {
               {result.dry_run ? result.would_update : result.updated} updated
               {result.skipped?.length ? ` · ${result.skipped.length} skipped` : ''}
             </p>
+            {result.levels && (
+              <p className="mt-1 text-slate-600">
+                Levels read from HQ Name: {result.levels.sales} sales rep, {result.levels.asm} sales manager,{' '}
+                {result.levels.rsm} regional manager
+                {result.levels.unknown ? `, ${result.levels.unknown} unrecognised` : ''}
+              </p>
+            )}
+            {result.unknown_prefixes?.length > 0 && (
+              <p className="mt-1 text-xs text-orange-700">
+                Prefixes not recognised: {result.unknown_prefixes.join(', ')} — those rows keep their current level.
+              </p>
+            )}
             {result.matched_columns?.length > 0 && (
               <p className="mt-1.5 text-xs text-slate-400">Columns matched: {result.matched_columns.join(', ')}</p>
             )}

@@ -37,6 +37,34 @@ function readStatus(v: string | null): string | null {
   return null
 }
 
+/**
+ * HQ Name is "Designation Location" — e.g. "VSO Ludhiana".
+ * The designation prefix also gives the level:
+ *   VSO / ASO   -> Sales Rep
+ *   ASM / DRSM  -> Sales Manager
+ *   RSM / AGM   -> Regional Manager
+ * An unrecognised prefix leaves the whole string as the HQ and the
+ * level alone, rather than guessing.
+ */
+const LEVEL_BY_PREFIX: Record<string, string> = {
+  VSO: 'sales', ASO: 'sales',
+  ASM: 'asm',   DRSM: 'asm',
+  RSM: 'rsm',   AGM: 'rsm',
+}
+
+function splitHq(raw: string | null): { designation: string | null; hq: string | null; level: string | null } {
+  const text = String(raw ?? '').trim()
+  if (!text) return { designation: null, hq: null, level: null }
+
+  const m = text.match(/^([A-Za-z]+)[\s\-_/,.]+(.*)$/)
+  const prefix = (m ? m[1] : text).toUpperCase()
+  const level = LEVEL_BY_PREFIX[prefix] ?? null
+
+  // only split when the prefix is one we know — otherwise it's just a place name
+  if (!level) return { designation: null, hq: text, level: null }
+  return { designation: prefix, hq: (m?.[2] || '').trim() || null, level }
+}
+
 /** Sheets dates come through as dd/mm/yyyy, dd-mm-yyyy or an ISO string. */
 function readDate(v: string | null): string | null {
   const t = String(v ?? '').trim()
@@ -172,6 +200,8 @@ Deno.serve(async (req) => {
     const toUpdate: { id: string; patch: Record<string, unknown> }[] = []
     const skipped: { row: number; name: string; reason: string }[] = []
     const seen = new Set<string>()
+    const levels: Record<string, number> = { sales: 0, asm: 0, rsm: 0, unknown: 0 }
+    const unknownLevels = new Set<string>()
 
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i]
@@ -190,10 +220,16 @@ Deno.serve(async (req) => {
       }
       seen.add(key)
 
+      const raw = cell(r, 'hq_name')
+      const { designation, hq, level } = splitHq(raw)
+      if (raw && !level) unknownLevels.add(String(raw).trim().split(/[\s\-_/,.]+/)[0])
+
       const patch: Record<string, unknown> = {
         full_name: name,
         emp_code: code,
-        hq_name: cell(r, 'hq_name'),
+        hq_name: hq,
+        designation,
+        sales_role: level,
         asm_name: cell(r, 'asm_name'),
         rsm_name: cell(r, 'rsm_name'),
         sbu_head_name: cell(r, 'sbu_head_name'),
@@ -207,13 +243,15 @@ Deno.serve(async (req) => {
       for (const k of Object.keys(patch)) if (patch[k] == null) delete patch[k]
       patch.full_name = name
 
+      levels[level ?? 'unknown']++
+
       const id =
         (code && byCode.get(code)) ||
         (phone && byPhone.get(phone)) ||
         byName.get(name.toLowerCase())
 
       if (id) toUpdate.push({ id, patch })
-      else toInsert.push({ ...patch, status: patch.status || 'active', created_by: appUser.id })
+      else toInsert.push({ ...patch, status: patch.status || 'active', sales_role: level ?? 'sales', created_by: appUser.id })
     }
 
     if (dryRun) {
@@ -221,6 +259,7 @@ Deno.serve(async (req) => {
         ok: true, dry_run: true, tab,
         matched_columns: Object.keys(col),
         scanned: rows.length - 1, would_add: toInsert.length, would_update: toUpdate.length, skipped,
+        levels, unknown_prefixes: [...unknownLevels].slice(0, 20),
       })
     }
 
@@ -237,6 +276,7 @@ Deno.serve(async (req) => {
       ok: true, tab,
       matched_columns: Object.keys(col),
       scanned: rows.length - 1, added: toInsert.length, updated: toUpdate.length, skipped,
+      levels, unknown_prefixes: [...unknownLevels].slice(0, 20),
     })
   } catch (e) {
     return json({ error: (e as Error).message }, 500)
