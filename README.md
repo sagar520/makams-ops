@@ -56,7 +56,7 @@ Never set `VITE_DEMO` on the real deployment.
    first sign-in.
 3. Run the migrations, either way:
    - **Dashboard**: SQL Editor → paste and run `0001_core.sql`, `0002_hr.sql`,
-     `0003_purchase.sql`, … through `0017_prospective_blank_company.sql` **in order** (or paste the
+     `0003_purchase.sql`, … through `0018_candidate_admin_ops.sql` **in order** (or paste the
      combined `supabase/makams-ops-schema.sql` once).
    - **CLI**: `supabase link --project-ref <ref>` then `supabase db push`.
 
@@ -153,6 +153,10 @@ set — you can go live without them and add them later.
 - People are matched on **EmpCode** first, then mobile, then name — so importing again
   updates instead of duplicating. A blank cell leaves the app's existing value alone
   rather than wiping it. **Dry run** reports what would change without writing.
+- **Employees are read-only in the app.** There is no add, no edit, and clicking a row
+  does nothing: every change is made in the sheet and arrives on the next sync. (The
+  person page — documents, checklists, learnapp account — is still there at
+  `/people/:id` for those app-only features.)
 - Which sheet and tab is a setting, not a secret: `app_settings.employee_sheet`
   (`{ "sheet_id": "...", "tab": "Master Sheet" }`).
 

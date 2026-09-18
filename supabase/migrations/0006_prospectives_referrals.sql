@@ -59,7 +59,7 @@ alter table public.form_templates add constraint form_templates_kind_check
 -- referrer details once, then a table of candidates)
 insert into public.form_templates (name, description, kind, fields)
 select 'Candidate referral form',
-       'Share your details once, then add as many candidates as you like below.',
+       null,
        'referral',
        '[]'::jsonb
 where not exists (select 1 from public.form_templates where kind = 'referral');

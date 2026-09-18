@@ -6,7 +6,6 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import PeopleList from './pages/hr/PeopleList'
 import PersonDetail from './pages/hr/PersonDetail'
-import PersonForm from './pages/hr/PersonForm'
 import Candidates from './pages/hr/Candidates'
 import Prospectives from './pages/hr/Prospectives'
 import FormPage from './pages/public/FormPage'
@@ -117,7 +116,6 @@ export default function App() {
 
               <Route path="/people" element={<RequireRole roles={['hr']}><PeopleList /></RequireRole>} />
               <Route path="/people/:id" element={<RequireRole roles={['hr']}><PersonDetail /></RequireRole>} />
-              <Route path="/people/:id/edit" element={<RequireRole roles={['hr']}><PersonForm /></RequireRole>} />
               <Route path="/prospectives" element={<RequireRole roles={['hr']}><Prospectives /></RequireRole>} />
               <Route path="/candidates" element={<RequireRole roles={['hr']}><Candidates /></RequireRole>} />
 

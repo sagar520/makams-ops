@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Users, RefreshCw, Sheet, Search } from 'lucide-react'
 import { supabase, callFunction } from '../../lib/supabase'
@@ -14,7 +14,6 @@ export default function PeopleList() {
   const [q, setQ] = useState('')
   const [importing, setImporting] = useState(false)
   const qc = useQueryClient()
-  const navigate = useNavigate()
   const toast = useToast()
 
   // The HR sheet is the roster: pull anything new in whenever this page opens.
@@ -122,12 +121,8 @@ export default function PeopleList() {
           </thead>
           <tbody>
             {filtered.map((p) => (
-              <Tr key={p.id} onClick={() => navigate(`/people/${p.id}`)}>
-                <Td className="font-medium text-slate-900">
-                  <Link to={`/people/${p.id}`} onClick={(e) => e.stopPropagation()} className="hover:text-red-600">
-                    {p.full_name}
-                  </Link>
-                </Td>
+              <Tr key={p.id}>
+                <Td className="font-medium text-slate-900">{p.full_name}</Td>
                 <Td className="text-slate-500">{p.emp_code || '—'}</Td>
                 <Td>{salesRoleLabel(p.sales_role)}</Td>
                 <Td>{p.hq_name || '—'}</Td>

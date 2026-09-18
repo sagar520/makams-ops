@@ -77,12 +77,25 @@ await expectText('Ludhiana', 'Location column shown')
   await page.waitForTimeout(400)
 }
 
-// 3. Person detail + checklist + learnapp emp-id login
+{
+  // clicking an employee does nothing — the sheet is the source of truth
+  await page.locator('tr', { hasText: 'Deepak Verma' }).click()
+  await page.waitForTimeout(600)
+  if (page.url().includes('/people') && !/\/people\//.test(page.url())) console.log('PASS  clicking a row does not navigate')
+  else { failed++; console.log(`FAIL  row click navigated to ${page.url()}`) }
+}
+
+// 3. Person detail (reachable by URL) + checklist + learnapp emp-id login
 await page.goto(`${BASE}/#/people/p-09`)
 await expectText('Vikram Rathi', 'person detail renders')
 await expectText('Bathinda', 'HQ on profile')
 await clickTabAndExpect('button:has-text("Checklists")', 'Standard onboarding — 5/10', 'onboarding checklist shows')
 await clickTabAndExpect('button:has-text("Learnapp")', 'SALES006', 'learnapp tab shows EMP ID login')
+{
+  const buttons = await page.locator('button').allInnerTexts()
+  if (!buttons.some((b) => b.trim() === 'Edit')) console.log('PASS  employee editing removed')
+  else { failed++; console.log('FAIL  Edit button still on the person page') }
+}
 
 // 4. Prospectives sheet
 await page.goto(`${BASE}/#/prospectives`)
@@ -271,6 +284,23 @@ await expectText('Mohit Saini', 'copied row appears on the sheet')
   else { failed++; console.log('FAIL  Sync sheet button still present') }
 }
 
+{
+  // admin can edit and delete rows in the DB
+  await page.goto(`${BASE}/#/candidates`)
+  await page.waitForSelector('text=Ankit Malhotra', { timeout: 8000 })
+  const row = page.locator('tr', { hasText: 'Nikita Rao' })
+  if (await row.locator('button:has-text("Edit")').count()) console.log('PASS  Edit button on DB rows')
+  else { failed++; console.log('FAIL  no Edit button on DB rows') }
+
+  page.once('dialog', (d) => d.accept())
+  await row.locator('button:has-text("Delete")').click()
+  await page.waitForSelector('text=deleted', { timeout: 8000 })
+  try {
+    await page.locator('td', { hasText: 'Nikita Rao' }).first().waitFor({ state: 'detached', timeout: 8000 })
+    console.log('PASS  admin deleted a DB row')
+  } catch { failed++; console.log('FAIL  DB row still listed after delete') }
+}
+
 // 6. Referral links tab
 await page.goto(`${BASE}/#/candidates`)
 await clickTabAndExpect('button:has-text("Referral links")', 'New referral link', 'referral links tab')
@@ -330,6 +360,11 @@ await expectText('expired', 'expired link is refused')
 // 7c. a consultant link: details still come from the link, then validation + a real submission
 await page.goto(`${BASE}/#/f/demo-source-ramesh`)
 await expectText('Candidate referral form', 'referral form renders')
+{
+  const body = await page.locator('body').innerText()
+  if (!/Share your details once/.test(body)) console.log('PASS  stock blurb removed from the form')
+  else { failed++; console.log('FAIL  stock blurb still on the form') }
+}
 await expectText('Your details', 'referrer section shows')
 await expectText('Ramesh Kumar (TalentBridge)', 'consultant link autofills too')
 await expectText('Your Contacts', 'contacts section renamed')

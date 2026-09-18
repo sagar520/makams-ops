@@ -125,7 +125,7 @@ export function buildSeedStore() {
   const form_templates = [
     {
       id: 'ft-referral', name: 'Candidate referral form',
-      description: 'Share your details once, then add as many candidates as you like below.',
+      description: null,
       kind: 'referral', active: true, created_at: iso(30), updated_at: iso(30), fields: [],
     },
     {

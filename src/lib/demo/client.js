@@ -490,6 +490,7 @@ const rpcs = {
   },
 
   delete_candidate: ({ p_id }) => {
+    if (!me().roles.includes('admin')) return err('Only an admin can delete from the Candidates DB')
     const i = store.candidates.findIndex((x) => x.id === p_id)
     if (i >= 0) store.candidates.splice(i, 1)
     return ok(null)

@@ -35,7 +35,11 @@ export default function PersonDetail() {
     <div>
       <PageHeader
         title={person.full_name}
-        actions={<Button variant="secondary" icon={Pencil} onClick={() => navigate(`/people/${id}/edit`)}>Edit</Button>}
+        actions={
+          <span className="text-xs text-slate-400">
+            Employee details come from the HR Google Sheet — edit them there.
+          </span>
+        }
       >
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
           <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>

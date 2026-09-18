@@ -273,6 +273,7 @@ function Database() {
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState(null)
   const [pickingId, setPickingId] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
 
   // areas HR may search — names only, no candidate rows
   const { data: areas = [] } = useQuery({
@@ -331,6 +332,21 @@ function Database() {
     qc.setQueryData(['candidates', full ? 'all' : area], (old) =>
       (old || []).map((x) => (x.id === c.id ? { ...x, hr_comment: next } : x)))
     toast('Comment saved')
+  }
+
+  const removeCandidate = async (c) => {
+    if (!window.confirm(`Delete ${c.full_name} from the Candidates DB? This cannot be undone.`)) return
+    setDeletingId(c.id)
+    try {
+      const { error } = await supabase.rpc('delete_candidate', { p_id: c.id })
+      if (error) throw error
+      toast(`${c.full_name} deleted`)
+      refresh()
+    } catch (e) {
+      toast(e.message, 'error')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const addToProspectives = async (c) => {
@@ -453,13 +469,22 @@ function Database() {
                 <Td className="max-w-64"><CommentCell value={c.hr_comment} onSave={(v) => saveComment(c, v)} /></Td>
                 <Td className="text-xs text-slate-400">{fmtDate(c.created_at)}</Td>
                 <Td right>
-                  {c.prospective_id ? (
-                    <Badge tone="green"><Check className="h-3 w-3" /> In Prospectives</Badge>
-                  ) : (
-                    <Button variant="secondary" size="xs" icon={ClipboardList} loading={pickingId === c.id} onClick={() => addToProspectives(c)}>
-                      Add to Prospectives
-                    </Button>
-                  )}
+                  <div className="flex justify-end gap-1">
+                    {c.prospective_id ? (
+                      <Badge tone="green"><Check className="h-3 w-3" /> In Prospectives</Badge>
+                    ) : (
+                      <Button variant="secondary" size="xs" icon={ClipboardList} loading={pickingId === c.id} onClick={() => addToProspectives(c)}>
+                        Add to Prospectives
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="xs" icon={Pencil} onClick={() => setEditing(c)}>Edit</Button>
+                    {isAdmin && (
+                      <Button variant="dangerSubtle" size="xs" icon={Trash2} loading={deletingId === c.id}
+                        onClick={() => removeCandidate(c)}>
+                        Delete
+                      </Button>
+                    )}
+                  </div>
                 </Td>
               </Tr>
             ))}
@@ -512,6 +537,8 @@ function CommentCell({ value, onSave }) {
 const EMPTY = { referred_by_name: '', referrer_emp_id: '', full_name: '', area: '', designation: '', current_company: '', phone: '', hr_comment: '' }
 
 function CandidateModal({ candidate, onClose, onSaved }) {
+  const { hasRole } = useAuth()
+  const isAdmin = hasRole('admin')
   const qc = useQueryClient()
   const toast = useToast()
   const [form, setForm] = useState(candidate ? { ...EMPTY, ...Object.fromEntries(Object.keys(EMPTY).map((k) => [k, candidate[k] ?? ''])) } : EMPTY)
@@ -551,7 +578,7 @@ function CandidateModal({ candidate, onClose, onSaved }) {
       sub={candidate?.source ? `Source: ${candidate.source} · added ${fmtDate(candidate.created_at)}` : undefined}
       footer={
         <>
-          {candidate && <Button variant="dangerSubtle" icon={Trash2} onClick={remove} className="mr-auto">Remove</Button>}
+          {candidate && isAdmin && <Button variant="dangerSubtle" icon={Trash2} onClick={remove} className="mr-auto">Remove</Button>}
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button onClick={save} loading={saving}>Save</Button>
         </>
