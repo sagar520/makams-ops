@@ -100,10 +100,10 @@ export default function UploadPortal() {
 
   return (
     <div className="min-h-screen bg-slate-100 pb-16">
-      <div className="bg-red-600 pb-16 pt-10 text-center text-white">
-        <p className="text-xs font-medium uppercase tracking-widest text-red-200">{info.company}</p>
+      <div className="bg-slate-900 pb-16 pt-10 text-center text-white">
+        <p className="text-xs font-medium uppercase tracking-widest text-red-400">{info.company}</p>
         <h1 className="mt-1 px-4 text-xl font-semibold">Hi {info.person_name?.split(' ')[0]} 👋</h1>
-        <p className="mt-1 px-6 text-sm text-red-100">Please complete the items below. No login needed.</p>
+        <p className="mt-1 px-6 text-sm text-slate-300">Please complete the items below. No login needed.</p>
       </div>
 
       <div className="mx-auto -mt-10 w-full max-w-lg space-y-4 px-4">

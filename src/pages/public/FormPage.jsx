@@ -105,10 +105,10 @@ export default function FormPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 pb-16">
-      <div className="bg-red-600 pb-16 pt-10 text-center text-white">
-        <p className="text-xs font-medium uppercase tracking-widest text-red-200">{info.company}</p>
+      <div className="bg-slate-900 pb-16 pt-10 text-center text-white">
+        <p className="text-xs font-medium uppercase tracking-widest text-red-400">{info.company}</p>
         <h1 className="mt-1 px-4 text-xl font-semibold">{info.form.name}</h1>
-        {info.form.description && <p className="mx-auto mt-1 max-w-md px-6 text-sm text-red-100">{info.form.description}</p>}
+        {info.form.description && <p className="mx-auto mt-1 max-w-md px-6 text-sm text-slate-300">{info.form.description}</p>}
       </div>
 
       <div className="mx-auto -mt-10 w-full max-w-lg space-y-4 px-4">
@@ -234,10 +234,10 @@ function ReferralForm({ token, info, onDone }) {
 
   return (
     <div className="min-h-screen bg-slate-100 pb-16">
-      <div className="bg-red-600 pb-16 pt-10 text-center text-white">
-        <p className="text-xs font-medium uppercase tracking-widest text-red-200">{info.company}</p>
+      <div className="bg-slate-900 pb-16 pt-10 text-center text-white">
+        <p className="text-xs font-medium uppercase tracking-widest text-red-400">{info.company}</p>
         <h1 className="mt-1 px-4 text-xl font-semibold">{info.form.name}</h1>
-        {info.form.description && <p className="mx-auto mt-1 max-w-md px-6 text-sm text-red-100">{info.form.description}</p>}
+        {info.form.description && <p className="mx-auto mt-1 max-w-md px-6 text-sm text-slate-300">{info.form.description}</p>}
       </div>
 
       <div className="mx-auto -mt-10 w-full max-w-2xl space-y-4 px-4">
