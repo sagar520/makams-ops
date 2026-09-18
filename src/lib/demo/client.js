@@ -442,6 +442,37 @@ const rpcs = {
 
   candidates_count: () => ok(store.candidates.length),
 
+  revoke_app_user: ({ p_id }) => {
+    const u = store.app_users.find((x) => x.id === p_id)
+    if (!u) return err('That user no longer exists')
+    if (u.id === me().id) return err('You cannot revoke your own access')
+    Object.assign(u, { active: false, auth_id: null })
+    return ok(null)
+  },
+
+  restore_app_user: ({ p_id }) => {
+    const u = store.app_users.find((x) => x.id === p_id)
+    if (u) u.active = true
+    return ok(null)
+  },
+
+  delete_app_user: ({ p_id }) => {
+    const u = store.app_users.find((x) => x.id === p_id)
+    if (!u) return err('That user no longer exists')
+    if (u.id === me().id) return err('You cannot delete your own account')
+    const refs =
+      store.purchase_orders.filter((x) => x.created_by === p_id).length +
+      store.po_approval_steps.filter((x) => x.approver_id === p_id).length +
+      store.candidates.filter((x) => x.created_by === p_id).length +
+      store.prospectives.filter((x) => x.created_by === p_id).length +
+      store.people.filter((x) => x.created_by === p_id).length
+    if (refs > 0) {
+      return err(`${u.full_name || u.email} has ${refs} record(s) against their name — revoke their access instead, so the history keeps its author`)
+    }
+    store.app_users = store.app_users.filter((x) => x.id !== p_id)
+    return ok(null)
+  },
+
   save_candidate: ({ p_id, p_patch }) => {
     const allowed = ['full_name','designation','area','current_company','phone','referred_by_name','referrer_emp_id','hr_comment','source']
     const patch = {}

@@ -1,9 +1,9 @@
 import { useMemo, useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { UserPlus, Users, RefreshCw, Sheet, Search } from 'lucide-react'
+import { Users, RefreshCw, Sheet, Search } from 'lucide-react'
 import { supabase, callFunction } from '../../lib/supabase'
-import { PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Tabs, EmptyState, FullPageSpinner, Modal, useToast } from '../../components/ui'
+import { PageHeader, Button, Table, Th, Td, Tr, Badge, SearchInput, Select, EmptyState, FullPageSpinner, Modal, useToast } from '../../components/ui'
 import { salesRoleLabel } from '../../lib/constants'
 import { fmtDate, fmtDateTime } from '../../lib/format'
 import { fmtMobile } from '../../lib/phone'
@@ -51,11 +51,15 @@ export default function PeopleList() {
 
   const counts = useMemo(() => {
     const list = people || []
-    return { active: list.filter((p) => p.status === 'active').length, all: list.length }
+    return {
+      active: list.filter((p) => p.status === 'active').length,
+      exited: list.filter((p) => p.status !== 'active').length,
+      all: list.length,
+    }
   }, [people])
 
   const filtered = useMemo(() => {
-    let list = status === 'all' ? (people || []) : (people || []).filter((p) => p.status === status)
+    let list = status === 'all' ? (people || []) : (people || []).filter((p) => (status === 'active' ? p.status === 'active' : p.status !== 'active'))
     if (q.trim()) {
       const needle = q.trim().toLowerCase()
       list = list.filter((p) =>
@@ -77,20 +81,20 @@ export default function PeopleList() {
         actions={
           <>
             <Button variant="secondary" icon={Sheet} onClick={() => setImporting(true)}>Import from sheet</Button>
-            <Button icon={UserPlus} onClick={() => navigate('/people/new')}>Add person</Button>
           </>
         }
       />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Tabs
-          tabs={[
-            { value: 'active', label: 'Active', count: counts.active },
-            { value: 'all', label: 'Everyone', count: counts.all },
-          ]}
+        <Select
+          className="w-56"
           value={status}
-          onChange={(v) => setParams(v === 'active' ? {} : { status: v })}
-        />
+          onChange={(e) => setParams(e.target.value === 'active' ? {} : { status: e.target.value })}
+        >
+          <option value="active">Active ({counts.active})</option>
+          <option value="exited">Inactive ({counts.exited})</option>
+          <option value="all">Active + inactive ({counts.all})</option>
+        </Select>
         <SearchInput value={q} onChange={setQ} placeholder="Search name, code, department…" className="w-72" />
       </div>
 
@@ -113,7 +117,7 @@ export default function PeopleList() {
               <Th>Email</Th>
               <Th>Joining Date</Th>
               <Th>LearnApp Status</Th>
-              {status === 'all' && <Th>Status</Th>}
+              <Th>Status</Th>
             </tr>
           </thead>
           <tbody>
@@ -136,13 +140,11 @@ export default function PeopleList() {
                   {p.learnapp_status === 'disabled' && <Badge tone="gray">Disabled</Badge>}
                   {!p.learnapp_status && <span className="text-slate-300">—</span>}
                 </Td>
-                {status === 'all' && (
-                  <Td>
-                    {p.status === 'active'
-                      ? <Badge tone="green">Active</Badge>
-                      : <Badge tone="gray">{p.status === 'exited' ? 'Inactive' : p.status}</Badge>}
-                  </Td>
-                )}
+                <Td>
+                  {p.status === 'active'
+                    ? <Badge tone="green">Active</Badge>
+                    : <Badge tone="gray">Inactive</Badge>}
+                </Td>
               </Tr>
             ))}
           </tbody>

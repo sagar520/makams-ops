@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import logoUrl from '../assets/logo.png'
-import { NavLink, Link } from 'react-router-dom'
+import { NavLink, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Users, ClipboardList, Briefcase, Store, FileText, CheckSquare, Settings as SettingsIcon,
+  Users, ClipboardList, Briefcase, Store, FileText, CheckSquare, Settings as SettingsIcon, Eye,
   LogOut, Menu, X,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
@@ -35,8 +35,9 @@ function SectionLabel({ children }) {
 }
 
 export default function Layout({ children }) {
-  const { appUser, signOut, hasRole, hasAnyRole } = useAuth()
+  const { appUser, signOut, hasRole, hasAnyRole, viewAs, setViewAs } = useAuth()
   const [open, setOpen] = useState(false)
+  const navigate = useNavigate()
 
   // Pending approvals badge for the current user
   const { data: pendingCount = 0 } = useQuery({
@@ -139,6 +140,27 @@ export default function Layout({ children }) {
           Makams Ops
         </Link>
       </header>
+
+      {viewAs && (
+        <div className="sticky top-0 z-20 border-b border-amber-300 bg-amber-100">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm text-amber-900 sm:px-6">
+            <Eye className="h-4 w-4 shrink-0" />
+            <span>
+              Viewing as <span className="font-semibold">{viewAs.full_name || viewAs.email}</span>
+              {viewAs.roles?.length ? ` (${viewAs.roles.join(', ')})` : ''}
+            </span>
+            <span className="text-xs text-amber-700">
+              Menus and buttons only — data still loads with your own access.
+            </span>
+            <button
+              className="ml-auto rounded-md bg-amber-900 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-800"
+              onClick={() => { setViewAs(null); navigate('/') }}
+            >
+              Stop viewing as
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">{children}</main>
     </div>

@@ -116,7 +116,6 @@ export default function App() {
               <Route path="/" element={<Landing />} />
 
               <Route path="/people" element={<RequireRole roles={['hr']}><PeopleList /></RequireRole>} />
-              <Route path="/people/new" element={<RequireRole roles={['hr']}><PersonForm /></RequireRole>} />
               <Route path="/people/:id" element={<RequireRole roles={['hr']}><PersonDetail /></RequireRole>} />
               <Route path="/people/:id/edit" element={<RequireRole roles={['hr']}><PersonForm /></RequireRole>} />
               <Route path="/prospectives" element={<RequireRole roles={['hr']}><Prospectives /></RequireRole>} />

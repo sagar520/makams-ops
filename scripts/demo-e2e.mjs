@@ -53,18 +53,29 @@ await expectText('RM001', 'EMP IDs shown')
 await expectText('Ludhiana', 'Location column shown')
 {
   const head = (await page.locator('thead').first().innerText()).toLowerCase()
-  const want = ['name', 'emp id', 'level', 'location', 'asm', 'contact', 'email', 'joining date', 'learnapp status']
+  const want = ['name', 'emp id', 'level', 'location', 'asm', 'contact', 'email', 'joining date', 'learnapp status', 'status']
   const missing = want.filter((w) => !head.includes(w))
   if (!missing.length) console.log('PASS  employee columns as specified')
   else { failed++; console.log(`FAIL  employee columns missing: ${missing.join(', ')}`) }
 }
 {
-  const tabs = await page.locator('button').allInnerTexts()
-  const gone = ['Joining', 'Exited', 'Not joined'].filter((t) => tabs.some((b) => b.trim().startsWith(t)))
-  if (!gone.length) console.log('PASS  Joining / Exited / Not joined tabs removed')
-  else { failed++; console.log(`FAIL  tabs still present: ${gone.join(', ')}`) }
+  const buttons = await page.locator('button').allInnerTexts()
+  const gone = ['Joining', 'Exited', 'Not joined', 'Add person'].filter((t) => buttons.some((b) => b.trim().startsWith(t)))
+  if (!gone.length) console.log('PASS  status tabs and Add person removed')
+  else { failed++; console.log(`FAIL  still present: ${gone.join(', ')}`) }
 }
-await clickTabAndExpect('button:has-text("Everyone")', 'Suresh Pillai', 'Everyone tab shows inactive people too')
+{
+  // one status filter instead: active by default, inactive on demand
+  const hidden = await page.locator('td', { hasText: 'Suresh Pillai' }).count()   // exited
+  if (hidden === 0) console.log('PASS  inactive people hidden by default')
+  else { failed++; console.log('FAIL  inactive people shown by default') }
+
+  await page.locator('div.mb-4 select').first().selectOption('all')
+  await page.waitForSelector('text=Suresh Pillai', { timeout: 8000 })
+  console.log('PASS  status filter reveals inactive people')
+  await page.locator('div.mb-4 select').first().selectOption('active')
+  await page.waitForTimeout(400)
+}
 
 // 3. Person detail + checklist + learnapp emp-id login
 await page.goto(`${BASE}/#/people/p-09`)
@@ -408,6 +419,59 @@ await clickTabAndExpect('button:has-text("Checklists")', 'Standard onboarding', 
   const v = await page.locator('label:has-text("Sheet link or id") input').inputValue()
   if (v.includes('1LjZIDyXeDG2pEiS2KGSj8l2Ts')) console.log('PASS  sheet id prefilled from the setting')
   else { failed++; console.log(`FAIL  sheet id not prefilled (${v})`) }
+}
+
+// 8b. Admin: view the app as another user
+{
+  await page.goto(`${BASE}/#/settings`)
+  await clickTabAndExpect('button:has-text("Users")', 'Priya Nair', 'users tab lists staff')
+  const row = page.locator('tr', { hasText: 'Priya Nair' })
+  await row.locator('button:has-text("View as")').click()
+  await page.waitForSelector('text=Viewing as', { timeout: 8000 })
+  console.log('PASS  view-as banner appears')
+  {
+    const nav = await page.locator('aside').first().innerText()
+    // Priya is HR only: the purchase module and settings should disappear
+    if (!/purchase orders/i.test(nav) && !/settings/i.test(nav)) console.log('PASS  menus match the viewed user')
+    else { failed++; console.log(`FAIL  menus not switched (${nav.replace(/\s+/g, ' ')})`) }
+  }
+  await page.click('button:has-text("Stop viewing as")')
+  await page.waitForTimeout(400)
+  await page.waitForTimeout(600)
+  {
+    const nav = await page.locator('aside').first().innerText()
+    if (/settings/i.test(nav)) console.log('PASS  stopping restores the admin menus')
+    else { failed++; console.log('FAIL  admin menus not restored') }
+  }
+}
+
+// 8c. Admin: revoke / restore / delete staff accounts
+{
+  await page.goto(`${BASE}/#/settings`)
+  await clickTabAndExpect('button:has-text("Users")', 'Rohit Bansal', 'users tab lists an invite')
+  page.on('dialog', (d) => d.accept())
+
+  const rohit = page.locator('tr', { hasText: 'Rohit Bansal' })
+  await rohit.locator('button:has-text("Revoke")').click()
+  await page.waitForSelector('text=Access revoked', { timeout: 8000 })
+  console.log('PASS  access revoked')
+
+  await page.locator('tr', { hasText: 'Rohit Bansal' }).locator('button:has-text("Restore")').click()
+  await page.waitForSelector('text=Access restored', { timeout: 8000 })
+  console.log('PASS  access restored')
+
+  // Priya has records against her name — delete must refuse and say why
+  await page.locator('tr', { hasText: 'Priya Nair' }).locator('button:has-text("Delete")').click()
+  await page.waitForSelector('text=revoke their access instead', { timeout: 8000 })
+  console.log('PASS  delete refuses when there is history')
+
+  // Rohit has none, so he goes
+  await page.locator('tr', { hasText: 'Rohit Bansal' }).locator('button:has-text("Delete")').click()
+  await page.waitForSelector('text=deleted', { timeout: 8000 })
+  await page.waitForTimeout(600)
+  const left = await page.locator('td', { hasText: 'Rohit Bansal' }).count()
+  if (left === 0) console.log('PASS  unused invite deleted')
+  else { failed++; console.log('FAIL  invite still listed after delete') }
 }
 
 // 9. Purchase side (regression)

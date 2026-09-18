@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, Pencil, RefreshCw, ArrowDown, ArrowUp, GraduationCap, Mail, Sheet } from 'lucide-react'
+import { Plus, Trash2, Pencil, RefreshCw, ArrowDown, ArrowUp, GraduationCap, Mail, Sheet, Eye, Ban, RotateCcw } from 'lucide-react'
 import { supabase, callFunction } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import {
@@ -43,10 +44,33 @@ export default function Settings() {
 /* ================= Users ================= */
 
 function UsersTab() {
-  const { appUser } = useAuth()
+  const { appUser, setViewAs } = useAuth()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const toast = useToast()
   const [editing, setEditing] = useState(null) // 'new' | user
+
+  const [busyId, setBusyId] = useState(null)
+
+  /** revoke / restore / delete, each through its own guarded RPC */
+  const act = async (u, what) => {
+    const who = u.full_name || u.email
+    if (what === 'revoke' && !window.confirm(`Revoke access for ${who}? They will not be able to sign in. Everything they created keeps their name on it, and you can restore them later.`)) return
+    if (what === 'delete' && !window.confirm(`Delete ${who} completely? This only works for accounts with no history behind them.`)) return
+
+    setBusyId(u.id)
+    try {
+      const fn = { revoke: 'revoke_app_user', restore: 'restore_app_user', delete: 'delete_app_user' }[what]
+      const { error } = await supabase.rpc(fn, { p_id: u.id })
+      if (error) throw error
+      toast({ revoke: 'Access revoked', restore: 'Access restored', delete: `${who} deleted` }[what])
+      qc.invalidateQueries({ queryKey: ['app-users'] })
+    } catch (e) {
+      toast(e.message, 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['app-users'],
@@ -62,7 +86,16 @@ function UsersTab() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-slate-500">People who can sign in to this app. They sign in with Google using the exact email you invite.</p>
+        <p className="max-w-2xl text-sm text-slate-500">
+          People who can sign in to this app. They sign in with Google using the exact email you invite.
+          <span className="mt-1 block text-xs text-slate-400">
+            <Eye className="mr-1 inline h-3.5 w-3.5" />
+            <span className="font-medium">View as</span> shows you the app with that person's menus and buttons —
+            the interface only, since queries still run as you. <span className="font-medium">Revoke</span> stops
+            someone signing in but keeps their name on what they created; <span className="font-medium">Delete</span>
+            is for invites and mistakes, and refuses when there is history behind the account.
+          </span>
+        </p>
         <Button icon={Plus} onClick={() => setEditing('new')}>Invite user</Button>
       </div>
       <Table>
@@ -83,7 +116,36 @@ function UsersTab() {
               <Td>
                 {!u.active ? <Badge tone="gray">Deactivated</Badge> : u.auth_id ? <Badge tone="green">Joined</Badge> : <Badge tone="amber">Invited</Badge>}
               </Td>
-              <Td right><Button variant="ghost" size="xs" icon={Pencil} onClick={() => setEditing(u)}>Edit</Button></Td>
+              <Td right>
+                <div className="flex justify-end gap-1">
+                  {u.id !== appUser.id && u.active && u.roles.length > 0 && (
+                    <Button variant="secondary" size="xs" icon={Eye}
+                      onClick={() => { setViewAs(u); navigate('/') }}>
+                      View as
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="xs" icon={Pencil} onClick={() => setEditing(u)}>Edit</Button>
+                  {u.id !== appUser.id && (
+                    u.active ? (
+                      <Button variant="ghost" size="xs" icon={Ban} loading={busyId === u.id}
+                        onClick={() => act(u, 'revoke')}>
+                        Revoke
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" size="xs" icon={RotateCcw} loading={busyId === u.id}
+                        onClick={() => act(u, 'restore')}>
+                        Restore
+                      </Button>
+                    )
+                  )}
+                  {u.id !== appUser.id && (
+                    <Button variant="dangerSubtle" size="xs" icon={Trash2} loading={busyId === u.id}
+                      onClick={() => act(u, 'delete')}>
+                      Delete
+                    </Button>
+                  )}
+                </div>
+              </Td>
             </Tr>
           ))}
         </tbody>

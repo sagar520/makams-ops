@@ -14,7 +14,10 @@ disable/enable on exit).
 
 **Admin**: manages users/roles, the jotform-style **form builder** (referral and
 general forms), checklist templates, PO types/locations/approval rules, and company
-settings. HR and Purchase roles each see only their own module.
+settings. HR and Purchase roles each see only their own module. Settings → Users also
+offers **View as** (see the app with another person's menus — interface only, queries
+still run as you), **Revoke / Restore** access, and **Delete** for invites and mistakes
+(refused when there is history behind the account, so authorship is never orphaned).
 
 **Purchase**: vendors, purchase orders with a configurable approval matrix
 (rules on PO type / delivery location / amount → ordered approver chain), PO PDF
@@ -53,7 +56,7 @@ Never set `VITE_DEMO` on the real deployment.
    first sign-in.
 3. Run the migrations, either way:
    - **Dashboard**: SQL Editor → paste and run `0001_core.sql`, `0002_hr.sql`,
-     `0003_purchase.sql`, … through `0015_prospective_department.sql` **in order** (or paste the
+     `0003_purchase.sql`, … through `0016_manage_users.sql` **in order** (or paste the
      combined `supabase/makams-ops-schema.sql` once).
    - **CLI**: `supabase link --project-ref <ref>` then `supabase db push`.
 

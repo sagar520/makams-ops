@@ -43,18 +43,47 @@ export function AuthProvider({ children }) {
 
   const signOut = () => supabase.auth.signOut()
 
+  /* ---------------- view as another user (admins only) ----------------
+   * This changes the INTERFACE only: which modules and buttons appear.
+   * Every query still runs as the signed-in admin, so row-level security
+   * is untouched — it is a preview, not a login.
+   */
+  const [viewAs, setViewAsState] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('makams.viewAs') || 'null') } catch { return null }
+  })
+
+  const isAdmin = !!appUser?.active && appUser.roles?.includes('admin')
+
+  const setViewAs = useCallback((user) => {
+    const next = user ? { id: user.id, full_name: user.full_name, email: user.email, roles: user.roles } : null
+    setViewAsState(next)
+    try {
+      if (next) sessionStorage.setItem('makams.viewAs', JSON.stringify(next))
+      else sessionStorage.removeItem('makams.viewAs')
+    } catch { /* private window: it just won't survive a reload */ }
+  }, [])
+
+  // only an admin can be pretending; drop it if the account changes
+  const acting = isAdmin ? viewAs : null
+  useEffect(() => {
+    if (viewAs && appUser !== undefined && !isAdmin) setViewAs(null)
+  }, [isAdmin, appUser]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const hasRole = useCallback(
     (role) => {
       if (!appUser?.active) return false
-      return appUser.roles?.includes(role) || appUser.roles?.includes('admin')
+      const roles = acting ? acting.roles : appUser.roles
+      return roles?.includes(role) || roles?.includes('admin')
     },
-    [appUser]
+    [appUser, acting]
   )
 
   const hasAnyRole = useCallback((roles) => roles.some((r) => hasRole(r)), [hasRole])
 
   return (
-    <AuthCtx.Provider value={{ session, appUser, signInWithGoogle, signOut, hasRole, hasAnyRole }}>
+    <AuthCtx.Provider
+      value={{ session, appUser, signInWithGoogle, signOut, hasRole, hasAnyRole, viewAs: acting, setViewAs, isAdmin }}
+    >
       {children}
     </AuthCtx.Provider>
   )
