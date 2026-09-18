@@ -12,7 +12,3 @@ dist-demo
 *service-account*.json
 *credentials*.json
 *.pem
-
-_to_delete/
-Claude outputs/
-_sync.zip

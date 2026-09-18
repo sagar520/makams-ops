@@ -160,6 +160,19 @@ set — you can go live without them and add them later.
 - Which sheet and tab is a setting, not a secret: `app_settings.employee_sheet`
   (`{ "sheet_id": "...", "tab": "Master Sheet" }`).
 
+### Going live (clearing the sample data)
+
+`supabase/reset-to-fresh.sql` empties the database for real use. It deletes every
+business record — employees, candidates, prospectives, referral submissions and links,
+purchase orders, receipts, vendors, uploaded documents, checklists, learnapp actions
+and the PO numbering — along with the seeded staff logins, the seeded company address
+and GSTIN, the sample delivery location and the sample approval rules. It keeps your
+own login, anyone who has actually signed in, the referral form, checklist templates,
+PO types, the employee-sheet setting, and the company name / PO prefix / PO terms, and
+it leaves one catch-all approval rule pointing at the admin so a submitted PO still has
+somewhere to go. PO numbers restart at 0001. It cannot be undone — take a backup first
+(Dashboard → Database → Backups). Running it twice is safe.
+
 ### Resend (PO emails)
 
 - [resend.com](https://resend.com) → verify the `makams.com` domain (SPF + DKIM DNS

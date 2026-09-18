@@ -1,12 +1,12 @@
 -- ============================================================
 -- Makams Ops — DUMMY DATA (~3 months of moderate usage)
 -- Generated 2026-09-17. Paste into the Supabase SQL Editor and Run once.
--- Remove later with reset-dummy-data.sql
+-- Remove later with reset-to-fresh.sql
 -- ============================================================
 
 do $$ begin
   if exists (select 1 from public.people) or exists (select 1 from public.purchase_orders) then
-    raise exception 'Data already present — aborting so nothing is duplicated. Run reset-dummy-data.sql first if you want a clean reload.';
+    raise exception 'Data already present — aborting so nothing is duplicated. Run reset-to-fresh.sql first if you want a clean reload.';
   end if;
 end $$;
 
@@ -359,7 +359,7 @@ insert into public.po_counters (fy, last_n) values ('26-27', 16) on conflict (fy
 
 -- ============================================================
 -- Dummy-data top-up for HR v3 (safe to skip once you load real data;
--- reset-dummy-data.sql removes all of it)
+-- reset-to-fresh.sql removes all of it)
 -- ============================================================
 
 -- make the dummy workforce look like the sales org

@@ -2,15 +2,7 @@
 -- Makams Ops — UPGRADE for your live project (run once)
 -- Applies migrations 0006 + 0007 and refreshes the dummy data.
 -- Your existing rows are kept (candidate columns are renamed in place).
--- Run this ONCE — if it has already been applied, it stops with a
--- clear message and changes nothing.
 -- ============================================================
-
-do $$ begin
-  if to_regclass('public.prospectives') is not null then
-    raise exception 'Already applied — this upgrade has run before. Skip this file; nothing was changed.';
-  end if;
-end $$;
 
 -- ============================================================
 -- Makams Ops — 0006 HR v3:
@@ -73,7 +65,7 @@ alter table public.form_templates add constraint form_templates_kind_check
 -- referrer details once, then a table of candidates)
 insert into public.form_templates (name, description, kind, fields)
 select 'Candidate referral form',
-       null,
+       'Share your details once, then add as many candidates as you like below.',
        'referral',
        '[]'::jsonb
 where not exists (select 1 from public.form_templates where kind = 'referral');
@@ -102,7 +94,7 @@ create index people_hq_idx on public.people (hq_name);
 
 -- ============================================================
 -- Dummy-data top-up for HR v3 (safe to skip once you load real data;
--- reset-to-fresh.sql removes all of it)
+-- reset-dummy-data.sql removes all of it)
 -- ============================================================
 
 -- make the dummy workforce look like the sales org
@@ -142,6 +134,3 @@ insert into public.prospectives (full_name, designation, area, contact, status) 
   ('Sahil Chopra', 'Sales Rep', 'Ludhiana', '99145 87230', 'rejected');
 
 select 'Upgrade done: ' || (select count(*) from public.prospectives) || ' prospectives, ' || (select count(*) from public.candidates) || ' candidates, referral form ready' as result;
-
--- make the API layer re-read the schema straight away
-notify pgrst, 'reload schema';
