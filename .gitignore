@@ -7,3 +7,8 @@ dist
 supabase/.temp
 supabase/.branches
 dist-demo
+
+# service-account keys and other credentials — never commit these
+*service-account*.json
+*credentials*.json
+*.pem
