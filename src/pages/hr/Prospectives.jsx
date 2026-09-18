@@ -71,7 +71,7 @@ export default function Prospectives() {
   }
 
   const setStatus = async (row, status) => {
-    if (status === 'joined' && (!row.doj || !row.emp_code)) {
+    if (status === 'joined' && row.status !== 'joined' && (!row.doj || !row.emp_code)) {
       setEditing({ ...row, status })
       return toast('Add the joining date and EMP code to mark them joined', 'error')
     }
@@ -224,8 +224,12 @@ function ProspectiveModal({ row, onClose }) {
 
   const save = async () => {
     if (!form.full_name.trim()) return toast('Name is required', 'error')
-    if (form.status === 'joined' && (!form.doj || !form.emp_code.trim())) {
-      return toast('A joining date and EMP code are needed to mark someone joined', 'error')
+    if (form.status === 'joined') {
+      if (!form.doj) return toast('A joining date is needed to mark someone joined', 'error')
+      // imported rows can be joined without an EMP code; marking someone joined here cannot
+      if (row?.status !== 'joined' && !form.emp_code.trim()) {
+        return toast('An EMP code is needed to mark someone joined', 'error')
+      }
     }
     setSaving(true)
     try {

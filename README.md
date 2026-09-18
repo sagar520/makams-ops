@@ -160,6 +160,20 @@ set — you can go live without them and add them later.
 - Which sheet and tab is a setting, not a secret: `app_settings.employee_sheet`
   (`{ "sheet_id": "...", "tab": "Master Sheet" }`).
 
+### Importing the HR interview workbook
+
+`scripts/build-prospective-import.py <workbook.xlsx> > supabase/import-prospectives.sql` turns
+the interview workbook into a SQL import for `public.prospectives`. It reads all three sheets
+(Latest, then the 2026 and 2025 dashboards, newest wins on a repeated CV number), maps the
+sheet's vocabulary onto the app's (Pipeline→New, Shortlist→Contacted, Process→Interview
+Scheduled, Hold→Interested, Final→Offer Letter Sent or Joined when a joining date exists,
+Reject and Backout→Rejected with the reason kept in the comment), derives the department from
+the designation and the division from the File/Division column, normalises phone numbers to
+`+91##########` and CV numbers to `MI#####`, and takes the intake month from the Month column
+as `created_at`. Re-running skips CV numbers that already exist and raises a notice for any
+that exist under a different name. Sales rows mirror into the Candidates DB through the usual
+trigger.
+
 ### Going live (clearing the sample data)
 
 `supabase/reset-to-fresh.sql` empties the database for real use. It deletes every
@@ -238,7 +252,7 @@ before it is handed over.
   (Poultry / Cattle / HO / Manufacturing), Department (Sales / PMT / Marketing / Doctor /
   QC / Manufacturing / Other HO Functions / Other), Area, Contact, Source (LI / Indeed,
   Internal Referral, Other), Status and Last updated. **CV no.** is a running unique ID,
-  `MI0001` upwards, handed out by a Postgres sequence through an insert trigger, so every
+  `MI` plus five digits (matching the HR workbook, which already runs to MI00466), handed out by a Postgres sequence through an insert trigger, so every
   row gets one however it was created and no two ever collide; it is never edited by hand,
   and a rejected insert leaves a gap in the run. Status is colour-coded and changed inline
   (New → Contacted → Interested → Interview Scheduled → Offer Letter Sent → Joined, plus

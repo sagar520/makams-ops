@@ -149,7 +149,7 @@ const nextCvNo = () => {
   const used = (store.prospectives || [])
     .map((r) => Number(String(r.cv_no || '').replace(/^MI/, '')))
     .filter((n) => Number.isFinite(n) && n > 0)
-  return 'MI' + String((used.length ? Math.max(...used) : 0) + 1).padStart(4, '0')
+  return 'MI' + String((used.length ? Math.max(...used) : 0) + 1).padStart(5, '0')
 }
 
 const insertDefaults = {

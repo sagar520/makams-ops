@@ -186,7 +186,7 @@ console.log('PASS  prospective status changed inline')
   else { failed++; console.log('FAIL  Joined did not reveal DOJ / EMP code') }
 
   await modal.locator('button:has-text("Save")').click()
-  await page.waitForSelector('text=joining date and EMP code', { timeout: 8000 })
+  await page.waitForSelector('text=joining date is needed', { timeout: 8000 })
   console.log('PASS  Joined without DOJ / EMP code is refused')
   await page.keyboard.press('Escape')
   await page.waitForTimeout(400)
@@ -248,12 +248,12 @@ console.log('PASS  prospective status changed inline')
   if (head.includes('cv no')) console.log('PASS  CV no. column shown')
   else { failed++; console.log('FAIL  CV no. column missing') }
 
-  const mi = await page.locator('td', { hasText: /^MI\d{4}$/ }).count()
+  const mi = await page.locator('td', { hasText: /^MI\d{5}$/ }).count()
   if (mi > 0) console.log('PASS  prospectives carry MI#### numbers')
   else { failed++; console.log('FAIL  no MI#### numbers on the sheet') }
 
   const search = page.locator('div.mb-4 input[type="search"], div.mb-4 input[placeholder*="CV"]').first()
-  await search.fill('MI0001')
+  await search.fill('MI00001')
   await page.waitForTimeout(400)
   const rows = await page.locator('tbody tr').count()
   if (rows === 1) console.log('PASS  search by CV no. narrows to one row')
