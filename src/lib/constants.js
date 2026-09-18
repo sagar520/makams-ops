@@ -145,3 +145,7 @@ export const RECEIVED_STATUS = {
 export const UNITS = ['nos', 'kg', 'g', 'mt', 'ltr', 'ml', 'box', 'pkt', 'roll', 'set', 'pair', 'mtr', 'sqft', 'hrs', 'service']
 
 export const GST_RATES = [0, 5, 12, 18, 28]
+
+// Candidates DB: rows added or updated inside this window are always visible to HR,
+// without searching a location. Matches the cap inside recent_candidates().
+export const RECENT_DAYS = 15

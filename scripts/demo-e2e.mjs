@@ -231,6 +231,20 @@ await expectText('Ankit Malhotra', 'candidates DB renders')
   else { failed++; console.log('FAIL  area search leaked another area') }
 }
 {
+  // HR always has the last 15 days without searching anything
+  await page.click('button:has-text("Last 15 days")')
+  await page.waitForSelector('text=touched in the last 15 days', { timeout: 8000 })
+  await page.waitForSelector('text=Nikita Rao', { timeout: 8000 })   // created 2 days ago
+  const stale = await page.locator('td', { hasText: 'Divya Kapoor' }).count()   // last touched 20 days ago
+  if (stale === 0) console.log('PASS  recent view shows the last 15 days only')
+  else { failed++; console.log('FAIL  recent view leaked a row older than 15 days') }
+  const edited = await page.locator('td', { hasText: 'Rakesh Yadav' }).count()  // 22 days
+  if (edited === 0) console.log('PASS  recent view excludes untouched older rows')
+  else { failed++; console.log('FAIL  recent view included an untouched older row') }
+  await page.click('button:has-text("open the full database")')
+  await page.waitForSelector('text=Admin view — the whole database', { timeout: 8000 })
+}
+{
   const cell = page.locator('td', { hasText: 'Ramesh Kumar' }).first()
   try { await cell.waitFor({ timeout: 8000 }); console.log('PASS  referred-by shown') }
   catch { failed++; console.log('FAIL  referred-by shown') }

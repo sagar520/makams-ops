@@ -440,6 +440,13 @@ const rpcs = {
     return ok(store.candidates.filter((c) => String(c.area || '').toLowerCase().includes(v.toLowerCase())))
   },
 
+  recent_candidates: ({ p_days }) => {
+    const days = Math.min(Math.max(Number(p_days) || 15, 1), 15)
+    const since = Date.now() - days * 86400000
+    const touched = (c) => Math.max(Date.parse(c.created_at || 0) || 0, Date.parse(c.updated_at || 0) || 0)
+    return ok(store.candidates.filter((c) => touched(c) >= since).sort((a, b) => touched(b) - touched(a)))
+  },
+
   candidates_count: () => ok(store.candidates.length),
 
   revoke_app_user: ({ p_id }) => {

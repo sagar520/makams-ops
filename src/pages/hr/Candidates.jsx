@@ -9,6 +9,7 @@ import {
 import { fmtDate, fmtDateTime } from '../../lib/format'
 import { fmtMobile, isMobile, normalizeMobile, mobileInput, MOBILE_HINT } from '../../lib/phone'
 import { useAuth } from '../../hooks/useAuth'
+import { RECENT_DAYS } from '../../lib/constants'
 
 export default function Candidates() {
   const [tab, setTab] = useState('db')
@@ -268,8 +269,9 @@ function Database() {
   const isAdmin = hasRole('admin')
 
   const [areaInput, setAreaInput] = useState('')
-  const [area, setArea] = useState('')          // the area actually searched
-  const [showAll, setShowAll] = useState(true)  // admins open on the full list; HR is always gated
+  const [area, setArea] = useState('')          // the location actually searched
+  // admins open on the full list; HR opens on the last 15 days and searches for anything older
+  const [view, setView] = useState(isAdmin ? 'all' : 'recent')  // 'all' | 'recent' | 'area'
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState(null)
   const [pickingId, setPickingId] = useState(null)
@@ -285,16 +287,24 @@ function Database() {
     },
   })
 
-  // Everyone searches by area. Admins can deliberately open the whole DB.
-  const full = isAdmin && showAll
+  // HR always has the last 15 days, and searches a location for anything older.
+  // Admins can deliberately open the whole DB.
+  const full = isAdmin && view === 'all'
+  const recent = view === 'recent'
+  const listKey = full ? 'all' : recent ? 'recent' : area
   const { data: candidates, isLoading, isFetching } = useQuery({
-    queryKey: ['candidates', full ? 'all' : area],
-    enabled: full || !!area,
+    queryKey: ['candidates', listKey],
+    enabled: full || recent || !!area,
     queryFn: async () => {
       if (full) {
         const { data, error } = await supabase.from('candidates').select('*').order('created_at', { ascending: false }).limit(3000)
         if (error) throw error
         return data
+      }
+      if (recent) {
+        const { data, error } = await supabase.rpc('recent_candidates', { p_days: RECENT_DAYS })
+        if (error) throw error
+        return data || []
       }
       const { data, error } = await supabase.rpc('search_candidates', { p_area: area })
       if (error) throw error
@@ -305,10 +315,12 @@ function Database() {
   const search = (value) => {
     const v = (value ?? areaInput).trim()
     if (v.length < 2) return toast('Type at least 2 characters of a location', 'error')
-    setShowAll(false)
     setAreaInput(v)
     setArea(v)
+    setView('area')
   }
+
+  const showRecent = () => { setArea(''); setAreaInput(''); setView('recent') }
 
   const filtered = useMemo(() => {
     let list = candidates || []
@@ -329,7 +341,7 @@ function Database() {
     if ((c.hr_comment || null) === next) return
     const { error } = await supabase.rpc('save_candidate', { p_id: c.id, p_patch: { hr_comment: next } })
     if (error) return toast(error.message, 'error')
-    qc.setQueryData(['candidates', full ? 'all' : area], (old) =>
+    qc.setQueryData(['candidates', listKey], (old) =>
       (old || []).map((x) => (x.id === c.id ? { ...x, hr_comment: next } : x)))
     toast('Comment saved')
   }
@@ -370,7 +382,7 @@ function Database() {
         <Card className="mb-4">
           <div className="flex flex-wrap items-end gap-3">
             <Field label="Search a location" className="min-w-64 flex-1"
-              hint="The database opens one location at a time — it is never listed in full.">
+              hint={`Anything added or updated in the last ${RECENT_DAYS} days is always listed. Search a location for older records — the database is never opened in full.`}>
               <div className="flex gap-2">
                 <Input
                   list="candidate-locations"
@@ -380,6 +392,9 @@ function Database() {
                   onKeyDown={(e) => e.key === 'Enter' && search()}
                 />
                 <Button icon={Search} onClick={() => search()} loading={isFetching}>Search</Button>
+                {!recent && (
+                  <Button variant="secondary" icon={Clock} onClick={showRecent}>Last {RECENT_DAYS} days</Button>
+                )}
               </div>
             </Field>
             <datalist id="candidate-locations">
@@ -389,9 +404,9 @@ function Database() {
           {isAdmin && (
             <p className="mt-3 text-xs text-slate-400">
               You're an admin, so you can also{' '}
-              <button className="font-medium text-red-600 hover:underline" onClick={() => { setShowAll(true); setArea('') }}>
+              <button className="font-medium text-red-600 hover:underline" onClick={() => { setArea(''); setAreaInput(''); setView('all') }}>
                 open the full database
-              </button>. HR accounts only ever see one location at a time.
+              </button>. HR accounts see the last {RECENT_DAYS} days, plus whichever location they search.
             </p>
           )}
           {areas.length > 0 && (
@@ -415,9 +430,12 @@ function Database() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-slate-600">
               <ShieldCheck className="mr-1.5 inline h-4 w-4 text-red-500" />
-              Admin view — the whole database. HR accounts search it one location at a time.
+              Admin view — the whole database. HR accounts see the last {RECENT_DAYS} days, plus whichever location they search.
             </p>
-            <Button variant="secondary" size="xs" icon={Search} onClick={() => setShowAll(false)}>Search by location</Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="xs" icon={Clock} onClick={showRecent}>Last {RECENT_DAYS} days</Button>
+              <Button variant="secondary" size="xs" icon={Search} onClick={() => setView('area')}>Search by location</Button>
+            </div>
           </div>
         </Card>
       )}
@@ -425,23 +443,24 @@ function Database() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <SearchInput value={q} onChange={setQ} placeholder="Filter these results…" className="w-72" />
-          {area && !full && <Badge tone="indigo">{filtered.length} in “{area}”</Badge>}
+          {!full && recent && <Badge tone="indigo">{filtered.length} touched in the last {RECENT_DAYS} days</Badge>}
+          {!full && !recent && area && <Badge tone="indigo">{filtered.length} in “{area}”</Badge>}
         </div>
         <Button icon={Plus} onClick={() => setEditing('new')}>Add candidate</Button>
       </div>
 
       {isLoading ? (
         <FullPageSpinner />
-      ) : !full && !area ? (
+      ) : !full && !recent && !area ? (
         <EmptyState
           icon={ShieldCheck}
           title="Search a location to open the database"
-          hint="Candidate records are pulled one location at a time — nobody can browse or export the whole pool."
+          hint="Older records are pulled one location at a time — nobody can browse or export the whole pool."
         />
       ) : !filtered.length ? (
         <EmptyState
           icon={Briefcase}
-          title={q ? 'No matches' : area ? `No candidates in “${area}”` : 'No candidates yet'}
+          title={q ? 'No matches' : recent ? `Nothing added or updated in the last ${RECENT_DAYS} days` : area ? `No candidates in “${area}”` : 'No candidates yet'}
           hint="Share a referral link (Referral links tab) — sources and employees can submit several candidates at once."
           action={!q && <Button icon={Plus} onClick={() => setEditing('new')}>Add candidate</Button>}
         />
@@ -449,7 +468,7 @@ function Database() {
         <Table>
           <thead>
             <tr>
-              <Th>Referred by</Th><Th>Name</Th><Th>Location</Th><Th>Designation</Th><Th>Current company</Th><Th>Phone</Th><Th>HR comment</Th><Th>Added</Th><Th />
+              <Th>Referred by</Th><Th>Name</Th><Th>Location</Th><Th>Designation</Th><Th>Current company</Th><Th>Phone</Th><Th>HR comment</Th><Th>Added / updated</Th><Th />
             </tr>
           </thead>
           <tbody>
@@ -467,7 +486,12 @@ function Database() {
                 <Td>{c.current_company || '—'}</Td>
                 <Td className="whitespace-nowrap text-slate-500">{c.phone ? fmtMobile(c.phone) : '—'}</Td>
                 <Td className="max-w-64"><CommentCell value={c.hr_comment} onSave={(v) => saveComment(c, v)} /></Td>
-                <Td className="text-xs text-slate-400">{fmtDate(c.created_at)}</Td>
+                <Td className="whitespace-nowrap text-xs text-slate-400">
+                  {fmtDate(c.created_at)}
+                  {c.updated_at && c.updated_at.slice(0, 10) !== c.created_at.slice(0, 10) && (
+                    <p className="text-slate-300">edited {fmtDate(c.updated_at)}</p>
+                  )}
+                </Td>
                 <Td right>
                   <div className="flex justify-end gap-1">
                     {c.prospective_id ? (

@@ -236,13 +236,16 @@ set — you can go live without them and add them later.
   DB (or rejects it) — nothing enters the Candidates DB unreviewed. HR comments are
   edited inline in the table, and good candidates go to Prospectives with one click.
   Nothing here auto-creates employees.
-- **Candidate DB access**: HR cannot browse or export the pool. They search an **area**
-  and get only the rows for that area. Admins always open on the full database (and can
-  narrow to one area if they want). This is enforced by RLS — the `candidates` table has no SELECT
-  policy for HR at all, reads go through `search_candidates(area)`, and writes go
-  through `save_candidate` / `pick_candidate` / `delete_candidate`. An HR user with
-  the anon key and a REST client sees exactly what the UI shows them: nothing, until
-  they name an area.
+- **Candidate DB access**: HR cannot browse or export the pool. Two doors, and only two:
+  everything **added or edited in the last 15 days** (the live working set, shown by
+  default), and whatever **location** they search. Admins always open on the full
+  database, and can switch to either narrower view. This is enforced by RLS — the
+  `candidates` table has no SELECT policy for HR at all, reads go through
+  `recent_candidates(days)` and `search_candidates(area)`, and writes go through
+  `save_candidate` / `pick_candidate` / `delete_candidate`. The day window is capped at
+  15 inside the function, so passing a bigger number does not widen it. An HR user with
+  the anon key and a REST client sees exactly what the UI shows them: the last 15 days,
+  and nothing older until they name a location.
 - **Where candidates come from**: referral links, plus automatic mirroring. Every new
   **employee**, and every new **Sales** prospective, is copied into the Candidates DB
   tagged `Referred by: CRIL HR` — employees also carry `Current company: CRIL`, while
